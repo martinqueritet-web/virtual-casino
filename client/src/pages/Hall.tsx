@@ -10,7 +10,7 @@ interface MachineInfo {
   id: string;
   name: string;
   tagline: string;
-  symbols: { icon: string }[];
+  symbols: { icon: string; name: string }[];
   palette: { from: string; to: string; accent: string };
 }
 
@@ -77,10 +77,22 @@ export function Hall() {
           <p className="mt-4 text-center text-gold-pale/70">
             Bonsoir {user!.username}. Votre portefeuille contient {fmt(useApp().balance)} VC.
           </p>
+          <div className="mx-auto mt-6 grid max-w-3xl grid-cols-3 gap-2 sm:gap-3">
+            {[
+              ["🃏", "Poker entre amis", () => document.getElementById("poker")?.scrollIntoView({ behavior: "smooth" })],
+              ["🎰", "Machines à sous", () => document.getElementById("machines")?.scrollIntoView({ behavior: "smooth" })],
+              ["♠️", "Blackjack", () => go("blackjack")],
+            ].map(([icon, label, fn]) => (
+              <button key={label as string} onClick={fn as () => void} className="panel flex flex-col items-center gap-1 px-2 py-3 hover:border-gold/50 sm:flex-row sm:justify-center sm:gap-3 sm:py-4">
+                <span className="text-3xl">{icon as string}</span>
+                <span className="text-sm font-medium text-gold-pale sm:text-base">{label as string}</span>
+              </button>
+            ))}
+          </div>
         </section>
 
         {/* Jouer avec mes amis : l'action principale du casino */}
-        <section className="felt relative overflow-hidden rounded-[28px] border-4 border-[#3a2412] p-6 shadow-[0_20px_60px_rgba(0,0,0,.6)] sm:p-8" style={{ ["--felt" as string]: "#0e5c46", ["--felt-hi" as string]: "#1c8064", ["--felt-lo" as string]: "#053425" }}>
+        <section id="poker" className="felt relative scroll-mt-20 overflow-hidden rounded-[28px] border-4 border-[#3a2412] p-6 shadow-[0_20px_60px_rgba(0,0,0,.6)] sm:p-8" style={{ ["--felt" as string]: "#0e5c46", ["--felt-hi" as string]: "#1c8064", ["--felt-lo" as string]: "#053425" }}>
           <div className="relative z-10 grid gap-8 md:grid-cols-[1.3fr_1fr] md:items-center">
             <div>
               <h1 className="font-marquee text-4xl text-gold-pale sm:text-5xl">Jouer avec mes amis</h1>
@@ -123,6 +135,57 @@ export function Hall() {
           </div>
         </section>
 
+        {/* Machines à sous : section dédiée, juste après le poker */}
+        <section id="machines" className="mt-12 scroll-mt-20">
+          <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="font-marquee text-4xl text-gold">Machines à sous</h2>
+              <p className="mt-1 max-w-xl text-gold-pale/75">5 machines à thème, gratuites, avec vos crédits virtuels. Les résultats sont tirés par le serveur.</p>
+            </div>
+            <ol className="grid gap-2 text-sm text-gold-pale/85 sm:grid-cols-3 md:max-w-2xl">
+              {[
+                "Choisissez une machine",
+                "Choisissez votre mise, de 1 à 25 VC",
+                "Lancez : 3 symboles identiques sur la ligne du milieu, c'est gagné",
+              ].map((t, i) => (
+                <li key={i} className="flex gap-2 rounded-lg border border-gold/15 bg-black/30 p-2.5">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-gold text-xs font-bold text-velvet">{i + 1}</span>
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {machines.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => go("slots/" + m.id)}
+                className="group flex flex-col rounded-2xl border-2 p-4 text-left transition-transform hover:-translate-y-1"
+                style={{ background: `linear-gradient(170deg, ${m.palette.from}, ${m.palette.to})`, borderColor: m.palette.accent + "99" }}
+              >
+                <div className="relative mb-3 grid grid-cols-3 gap-1.5 rounded-xl bg-black p-1.5" aria-hidden>
+                  {[0, 1, 2].map((i) => (
+                    <span key={i} className="grid h-14 place-items-center rounded-md bg-gradient-to-b from-[#e9e2cf] via-white to-[#e9e2cf] text-3xl">
+                      {m.symbols[0].icon}
+                    </span>
+                  ))}
+                  <span className="pointer-events-none absolute inset-x-1 top-1/2 h-[2px] -translate-y-1/2" style={{ background: m.palette.accent, boxShadow: `0 0 8px ${m.palette.accent}` }} />
+                </div>
+                <div className="text-lg font-semibold" style={{ color: m.palette.accent }}>
+                  {m.name}
+                </div>
+                <div className="text-sm text-gold-pale/65">{m.tagline}</div>
+                <div className="mt-1 text-xs text-gold-pale/55">
+                  3 × {m.symbols[0].name} = mise × 200
+                </div>
+                <span className="mt-4 rounded-lg py-2 text-center font-semibold text-velvet" style={{ background: m.palette.accent }}>
+                  Jouer
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
         <section className="mt-10 grid gap-5 md:grid-cols-2">
           <GameTile
             title="Blackjack"
@@ -143,29 +206,6 @@ export function Hall() {
           />
         </section>
 
-        <section className="mt-10">
-          <h2 className="mb-4 font-marquee text-3xl text-gold">Machines à sous</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {machines.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => go("slots/" + m.id)}
-                className="group rounded-xl border p-4 text-left transition-transform hover:-translate-y-0.5"
-                style={{ background: `linear-gradient(160deg, ${m.palette.from}, ${m.palette.to})`, borderColor: m.palette.accent + "55" }}
-              >
-                <div className="mb-3 flex gap-1 text-3xl" aria-hidden>
-                  {m.symbols.slice(0, 3).map((s, i) => (
-                    <span key={i}>{s.icon}</span>
-                  ))}
-                </div>
-                <div className="font-semibold" style={{ color: m.palette.accent }}>
-                  {m.name}
-                </div>
-                <div className="text-xs text-gold-pale/60">{m.tagline}</div>
-              </button>
-            ))}
-          </div>
-        </section>
       </main>
       <SettingsModal open={settings} onClose={() => setSettings(false)} />
     </div>
