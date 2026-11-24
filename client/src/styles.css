@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+html,
+body {
+  background: #020504;
+  color: #efe6cf;
+  font-family: "Outfit", system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  min-height: 100dvh;
+  background:
+    radial-gradient(1200px 600px at 50% -200px, rgba(217, 180, 90, 0.1), transparent 70%),
+    radial-gradient(900px 500px at 50% 110%, rgba(14, 92, 70, 0.25), transparent 70%),
+    #020504;
+  background-attachment: fixed;
+}
+
+/* motif art déco discret du hall */
+.deco-bg {
+  background-image:
+    linear-gradient(135deg, rgba(217, 180, 90, 0.05) 25%, transparent 25%),
+    linear-gradient(225deg, rgba(217, 180, 90, 0.05) 25%, transparent 25%);
+  background-size: 36px 36px;
+}
+
+:focus-visible {
+  outline: 2px solid #d9b45a;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
+}
+.btn-gold {
+  @apply btn text-velvet;
+  background: linear-gradient(180deg, #ecd08a, #c99c3c);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 4px 14px rgba(217, 180, 90, 0.18);
+}
+.btn-gold:not(:disabled):hover {
+  background: linear-gradient(180deg, #f4dca0, #d4a948);
+}
+.btn-ghost {
+  @apply btn border border-gold/30 text-gold-pale hover:bg-gold/10;
+}
+.btn-felt {
+  @apply btn bg-felt text-gold-pale border border-felt-light hover:bg-felt-light;
+}
+.btn-ruby {
+  @apply btn bg-ruby/90 text-white hover:bg-ruby;
+}
+.panel {
+  @apply rounded-xl border border-gold/15 bg-lounge/80;
+  backdrop-filter: blur(6px);
+}
+.input {
+  @apply w-full rounded-lg border border-gold/25 bg-black/40 px-3 py-2.5 text-gold-pale placeholder:text-gold-pale/30 focus:border-gold focus:outline-none;
+}
+
+/* Ampoules de chapiteau */
+.bulb {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #5a4a22;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.bulb.on {
+  background: #fff3c4;
+  box-shadow: 0 0 6px 2px rgba(255, 214, 120, 0.85), 0 0 14px 4px rgba(217, 180, 90, 0.35);
+}
+
+/* Feutre */
+.felt {
+  background:
+    radial-gradient(ellipse at 50% 40%, var(--felt-hi) 0%, var(--felt) 55%, var(--felt-lo) 100%);
+}
+.felt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0.18;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.6'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 180, 90, 0.7); }
+  50% { box-shadow: 0 0 0 7px rgba(217, 180, 90, 0); }
+}
+.turn-ring {
+  animation: pulse-ring 1.6s ease-in-out infinite;
+}
+
+[data-lowfx="true"] *,
+[data-lowfx="true"] *::before,
+[data-lowfx="true"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+[data-lowfx="true"] .felt::after {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .turn-ring { animation: none; }
+}
+
+input[type="range"] {
+  accent-color: #d9b45a;
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(217, 180, 90, 0.3) transparent;
+}
