@@ -2,6 +2,7 @@
 import * as core from "./core.js";
 import * as rooms from "./rooms.js";
 import * as solo from "./solo.js";
+import * as soloPoker from "./soloPoker.js";
 import { publicMachines } from "./games/slots.js";
 import { ApiError } from "./core.js";
 
@@ -67,6 +68,13 @@ export async function handle(req: Request): Promise<Response> {
     if (M === "GET" && path === "/blackjack") return json(await solo.bjGet(user.id));
     if (M === "POST" && path === "/blackjack/start") return json(await solo.bjStart(user.id, b));
     if (M === "POST" && path === "/blackjack/action") return json(await solo.bjAction(user.id, b));
+    if (M === "GET" && path === "/solo-poker") return json(await soloPoker.soloGet(user.id));
+    if (M === "POST" && path === "/solo-poker/start") return json(await soloPoker.soloStart(user, b));
+    if (M === "POST" && path === "/solo-poker/act") return json(await soloPoker.soloAct(user, b));
+    if (M === "POST" && path === "/solo-poker/step") return json(await soloPoker.soloStep(user));
+    if (M === "POST" && path === "/solo-poker/next") return json(await soloPoker.soloNext(user));
+    if (M === "POST" && path === "/solo-poker/rebuy") return json(await soloPoker.soloRebuy(user, b));
+    if (M === "POST" && path === "/solo-poker/leave") return json(await soloPoker.soloLeave(user));
     if (M === "POST" && path === "/slots/spin") return json(await solo.slotSpin(user.id, b));
 
     throw new ApiError(404, "Route inconnue");

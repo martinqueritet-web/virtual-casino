@@ -79,7 +79,7 @@ export function Hall() {
           </p>
           <div className="mx-auto mt-6 grid max-w-3xl grid-cols-3 gap-2 sm:gap-3">
             {[
-              ["🃏", "Poker entre amis", () => document.getElementById("poker")?.scrollIntoView({ behavior: "smooth" })],
+              ["🃏", "Poker", () => document.getElementById("poker")?.scrollIntoView({ behavior: "smooth" })],
               ["🎰", "Machines à sous", () => document.getElementById("machines")?.scrollIntoView({ behavior: "smooth" })],
               ["♠️", "Blackjack", () => go("blackjack")],
             ].map(([icon, label, fn]) => (
@@ -95,13 +95,16 @@ export function Hall() {
         <section id="poker" className="felt relative scroll-mt-20 overflow-hidden rounded-[28px] border-4 border-[#3a2412] p-6 shadow-[0_20px_60px_rgba(0,0,0,.6)] sm:p-8" style={{ ["--felt" as string]: "#0e5c46", ["--felt-hi" as string]: "#1c8064", ["--felt-lo" as string]: "#053425" }}>
           <div className="relative z-10 grid gap-8 md:grid-cols-[1.3fr_1fr] md:items-center">
             <div>
-              <h1 className="font-marquee text-4xl text-gold-pale sm:text-5xl">Jouer avec mes amis</h1>
+              <h1 className="font-marquee text-4xl text-gold-pale sm:text-5xl">Poker Texas Hold'em</h1>
               <p className="mt-3 max-w-md text-gold-pale/80">
-                Ouvrez un salon privé de poker Texas Hold'em, partagez le code ou le QR code, et jouez ensemble de 2 à 9 joueurs.
+                Ouvrez un salon privé, partagez le code ou le QR code, et jouez entre amis de 2 à 9 joueurs. Vous êtes seul ? Affrontez des bots.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <button className="btn-gold px-6 py-3 text-base" onClick={create} disabled={busy}>
-                  Créer un salon
+                  Créer un salon entre amis
+                </button>
+                <button className="btn-felt px-6 py-3 text-base" onClick={() => go("poker-solo")}>
+                  🤖 Jouer seul contre des bots
                 </button>
               </div>
             </div>

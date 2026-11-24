@@ -105,6 +105,50 @@ describe("comptes et portefeuille", () => {
   });
 });
 
+describe("poker solo contre les bots", () => {
+  it("partie complète : cave, bots, mains successives, départ", async () => {
+    const u = await signup("Solo");
+    expect((await call("POST", "/solo-poker/start", u.token, { bots: 3, level: "normal", buyIn: 9999 })).status).toBe(400);
+    let r = await call("POST", "/solo-poker/start", u.token, { bots: 3, level: "normal", buyIn: 200 });
+    expect(r.status).toBe(200);
+    expect(r.data.balance).toBe(300);
+    expect(r.data.table.seats.filter(Boolean)).toHaveLength(4);
+    expect((await call("POST", "/solo-poker/start", u.token, { bots: 2, level: "facile", buyIn: 100 })).status).toBe(400);
+    // les cartes des bots restent cachées
+    expect(r.data.table.hand.players[1].hole).toEqual([null, null]);
+    expect((await call("POST", "/wallet/reset", u.token)).status).toBe(400);
+
+    let hands = 0;
+    for (let guard = 0; guard < 400 && hands < 4; guard++) {
+      const t = r.data.table;
+      const h = t.hand;
+      if (h.stage === "done") {
+        hands++;
+        if (t.seats[0].stack === 0) break;
+        r = await call("POST", "/solo-poker/next", u.token);
+        expect(r.status).toBe(200);
+        continue;
+      }
+      if (h.toAct === 0) {
+        r = await call("POST", "/solo-poker/act", u.token, { type: t.me.legal.check ? "check" : "call" });
+      } else {
+        r = await call("POST", "/solo-poker/step", u.token);
+      }
+      expect(r.status).toBe(200);
+    }
+    expect(hands).toBeGreaterThanOrEqual(1);
+    const stats = (await call("GET", "/stats", u.token)).data.stats;
+    expect(stats.poker_hands).toBeGreaterThanOrEqual(1);
+
+    const stack = r.data.table.seats[0].stack;
+    const inHand = r.data.table.hand.stage !== "done";
+    const left = await call("POST", "/solo-poker/leave", u.token);
+    expect(left.data.table).toBeNull();
+    if (!inHand) expect(left.data.balance).toBe(300 + stack);
+    expect((await call("GET", "/solo-poker", u.token)).data.table).toBeNull();
+  }, 60000);
+});
+
 describe("salons multijoueurs et poker", () => {
   it("créer, rejoindre par code, chat, prêt, partie complète, départ", async () => {
     const before = await totalVC();

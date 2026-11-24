@@ -11,6 +11,7 @@ import { BlackjackPage } from "./pages/Blackjack";
 import { SlotsPage } from "./pages/Slots";
 import { ProfilePage } from "./pages/Profile";
 import { RulesPage } from "./pages/Rules";
+import { SoloPokerPage } from "./pages/SoloPoker";
 import { useEffect } from "react";
 
 function Router() {
@@ -44,6 +45,7 @@ function Router() {
   else if (r[0] === "rules") page = <RulesPage />;
   else if (!user) page = <Landing />;
   else if (r[0] === "room" && r[1]) page = <RoomPage code={r[1].toUpperCase()} autoJoin={r[2] === "join"} />;
+  else if (r[0] === "poker-solo") page = <SoloPokerPage />;
   else if (r[0] === "blackjack") page = <BlackjackPage />;
   else if (r[0] === "slots") page = <SlotsPage machineId={r[1]} />;
   else if (r[0] === "profile" || r[0] === "stats") page = <ProfilePage />;

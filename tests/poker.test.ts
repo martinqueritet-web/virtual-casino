@@ -210,3 +210,14 @@ describe("simulation : invariants sur 3 000 mains aléatoires", () => {
     expect(splits).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe("évaluateur rapide", () => {
+  it("donne exactement le même score que l'évaluateur complet sur 20 000 mains", async () => {
+    const { fastScore, encodeCard } = await import("../server/games/evaluator");
+    const { newDeck, shuffle } = await import("../server/games/cards");
+    for (let i = 0; i < 20000; i++) {
+      const seven = shuffle(newDeck()).slice(0, 7);
+      expect(fastScore(seven.map(encodeCard))).toBe(evaluateBest(seven).score);
+    }
+  });
+});

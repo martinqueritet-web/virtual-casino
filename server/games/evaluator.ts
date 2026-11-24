@@ -158,3 +158,78 @@ export function describeCurrent(hole: Card[], board: Card[]): { label: string; c
   }
   return { label, category, draws };
 }
+
+// ------------------------------------------------------------------ évaluation rapide
+// Version sans allocation, pour les simulations des bots. Même échelle de score qu'evaluateBest.
+const B15 = [15 ** 4, 15 ** 3, 15 ** 2, 15, 1];
+const SUIT_IDX: Record<string, number> = { s: 0, h: 1, d: 2, c: 3 };
+const counts = new Int8Array(15);
+const suitCount = new Int8Array(4);
+const suitMask = new Int32Array(4);
+
+function straightHigh(mask: number): number {
+  for (let hi = 14; hi >= 6; hi--) if (((mask >> (hi - 4)) & 31) === 31) return hi;
+  if ((mask & 0b100000000111100) === 0b100000000111100) return 5; // A-2-3-4-5
+  return 0;
+}
+function topBits(mask: number, n: number, out: number[]): void {
+  for (let r = 14; r >= 2 && out.length < n; r--) if (mask & (1 << r)) out.push(r);
+}
+
+/** Codage compact d'une carte : rang (2..14) × 4 + couleur. */
+export const encodeCard = (c: Card) => rankValue(c) * 4 + SUIT_IDX[c[1]];
+
+export function fastScore(cards: number[], n = cards.length): number {
+  counts.fill(0);
+  suitCount.fill(0);
+  suitMask.fill(0);
+  let mask = 0;
+  for (let i = 0; i < n; i++) {
+    const r = cards[i] >> 2;
+    const s = cards[i] & 3;
+    counts[r]++;
+    suitCount[s]++;
+    suitMask[s] |= 1 << r;
+    mask |= 1 << r;
+  }
+  const sc = (cat: number, tb: number[]) => {
+    let v = cat * 15 ** 5;
+    for (let i = 0; i < tb.length; i++) v += tb[i] * B15[i];
+    return v;
+  };
+  for (let s = 0; s < 4; s++) {
+    if (suitCount[s] >= 5) {
+      const sf = straightHigh(suitMask[s]);
+      if (sf) return sc(8, [sf]);
+      // une couleur bat tout sauf full / carré : vérifier ceux-ci d'abord
+      let quad = 0, trips = 0, pair = 0;
+      for (let r = 14; r >= 2; r--) {
+        if (counts[r] === 4) quad = r;
+        else if (counts[r] === 3) { if (!trips) trips = r; else if (!pair) pair = r; }
+        else if (counts[r] === 2 && !pair) pair = r;
+      }
+      if (quad) { const k: number[] = []; topBits(mask & ~(1 << quad), 1, k); return sc(7, [quad, k[0]]); }
+      if (trips && pair) return sc(6, [trips, pair]);
+      const f: number[] = [];
+      topBits(suitMask[s], 5, f);
+      return sc(5, f);
+    }
+  }
+  let quad = 0, t1 = 0, t2 = 0, p1 = 0, p2 = 0;
+  for (let r = 14; r >= 2; r--) {
+    const c = counts[r];
+    if (c === 4) quad = r;
+    else if (c === 3) { if (!t1) t1 = r; else if (!t2) t2 = r; }
+    else if (c === 2) { if (!p1) p1 = r; else if (!p2) p2 = r; }
+  }
+  if (quad) { const k: number[] = []; topBits(mask & ~(1 << quad), 1, k); return sc(7, [quad, k[0]]); }
+  if (t1 && (t2 || p1)) return sc(6, [t1, Math.max(t2, p1)]);
+  const st = straightHigh(mask);
+  if (st) return sc(4, [st]);
+  if (t1) { const k: number[] = []; topBits(mask & ~(1 << t1), 2, k); return sc(3, [t1, ...k]); }
+  if (p1 && p2) { const k: number[] = []; topBits(mask & ~(1 << p1) & ~(1 << p2), 1, k); return sc(2, [p1, p2, k[0]]); }
+  if (p1) { const k: number[] = []; topBits(mask & ~(1 << p1), 3, k); return sc(1, [p1, ...k]); }
+  const k: number[] = [];
+  topBits(mask, 5, k);
+  return sc(0, k);
+}

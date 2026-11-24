@@ -78,30 +78,36 @@ async function save(c: Q, s: RoomState) {
 async function settlePoker(c: Q, s: RoomState) {
   const t = s.poker;
   const h = t.hand;
-  if (h && h.stage === "done" && h.result && !h.statsRecorded) {
-    h.statsRecorded = true;
-    const r = h.result;
-    for (const p of r.participants) {
-      await c.query(
-        `UPDATE game_stats SET
-           poker_hands = poker_hands + 1,
-           poker_won = poker_won + $2,
-           poker_showdowns = poker_showdowns + $3,
-           poker_showdowns_won = poker_showdowns_won + $4,
-           poker_vpip = poker_vpip + $5,
-           poker_biggest_pot = GREATEST(poker_biggest_pot, $6),
-           poker_net = poker_net + $7,
-           poker_best_label = CASE WHEN $8 > poker_best_rank THEN $9 ELSE poker_best_label END,
-           poker_best_rank = GREATEST(poker_best_rank, $8)
-         WHERE user_id = $1`,
-        [p.userId, p.won ? 1 : 0, p.showdown ? 1 : 0, p.showdown && p.won ? 1 : 0, p.vpip ? 1 : 0, p.won ? r.potTotal : 0, p.net, p.category, p.label],
-      );
-      await addHistory(c, p.userId, "poker", p.won ? "Gagnée" : p.net === 0 ? "Neutre" : "Perdue", p.net, { room: s.code, hand: h.number, label: p.label, summary: r.summary });
-    }
-  }
+  if (h) await recordHandStats(c, h, s.code);
   for (const out of P.collectLeavers(t)) {
     await credit(c, out.userId, out.amount, "POKER_CASH_OUT", s.code);
     system(s, `${s.members.find((m) => m.userId === out.userId)?.username ?? "Un joueur"} récupère ${out.amount} VC dans son portefeuille`);
+  }
+}
+
+
+/** Enregistre statistiques et historique d'une main terminée (une seule fois ; les bots sont ignorés). */
+export async function recordHandStats(c: Q, h: P.HandState, ref: string) {
+  if (h.stage !== "done" || !h.result || h.statsRecorded) return;
+  h.statsRecorded = true;
+  const r = h.result;
+  for (const p of r.participants) {
+    if (p.userId.startsWith("bot:")) continue;
+    await c.query(
+      `UPDATE game_stats SET
+         poker_hands = poker_hands + 1,
+         poker_won = poker_won + $2,
+         poker_showdowns = poker_showdowns + $3,
+         poker_showdowns_won = poker_showdowns_won + $4,
+         poker_vpip = poker_vpip + $5,
+         poker_biggest_pot = GREATEST(poker_biggest_pot, $6),
+         poker_net = poker_net + $7,
+         poker_best_label = CASE WHEN $8 > poker_best_rank THEN $9 ELSE poker_best_label END,
+         poker_best_rank = GREATEST(poker_best_rank, $8)
+       WHERE user_id = $1`,
+      [p.userId, p.won ? 1 : 0, p.showdown ? 1 : 0, p.showdown && p.won ? 1 : 0, p.vpip ? 1 : 0, p.won ? r.potTotal : 0, p.net, p.category, p.label],
+    );
+    await addHistory(c, p.userId, "poker", p.won ? "Gagnée" : p.net === 0 ? "Neutre" : "Perdue", p.net, { room: ref, hand: h.number, label: p.label, summary: r.summary });
   }
 }
 

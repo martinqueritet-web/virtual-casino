@@ -10,7 +10,7 @@ import type { RoomData } from "./useRoom";
 
 const STAGE: Record<string, string> = { preflop: "Préflop", flop: "Flop", turn: "Turn", river: "River", showdown: "Abattage", done: "Main terminée" };
 
-export function PokerTable({ data, run, isHost }: { data: RoomData; run: (a: string, b?: object) => Promise<void>; isHost: boolean }) {
+export function PokerTable({ data, run, isHost, solo = false }: { data: Pick<RoomData, "poker" | "online" | "clockOffset">; run: (a: string, b?: object) => Promise<void>; isHost: boolean; solo?: boolean }) {
   const { user, prefs, balance } = useApp();
   const p = data.poker;
   const h = p.hand;
@@ -53,7 +53,7 @@ export function PokerTable({ data, run, isHost }: { data: RoomData; run: (a: str
 
   // le siège du joueur est toujours affiché en bas
   const ref = mySeat ?? 0;
-  const pos = (i: number, rx = 44, ry = 40) => {
+  const pos = (i: number, rx = narrow ? 34 : 44, ry = 40) => {
     const a = ((90 + ((i - ref + n) % n) * (360 / n)) * Math.PI) / 180;
     return { left: `${50 + rx * Math.cos(a)}%`, top: `${50 + ry * Math.sin(a)}%` };
   };
@@ -114,7 +114,7 @@ export function PokerTable({ data, run, isHost }: { data: RoomData; run: (a: str
         {p.seats.map((s: any, i: number) => {
           const ph = h?.players?.[i];
           const style = pos(i);
-          const betPos = pos(i, 27, 22);
+          const betPos = pos(i, narrow ? 20 : 27, 22);
           if (!s)
             return mySeat === null ? (
               <button
@@ -177,6 +177,7 @@ export function PokerTable({ data, run, isHost }: { data: RoomData; run: (a: str
         data={data}
         run={run}
         isHost={isHost}
+        solo={solo}
         onRankings={() => setRankings(true)}
         onRebuy={() => setRebuy(true)}
         onLog={() => setShowLog(true)}
@@ -232,6 +233,7 @@ function ActionPanel({
   data,
   run,
   isHost,
+  solo,
   onRankings,
   onRebuy,
   onLog,
@@ -239,9 +241,10 @@ function ActionPanel({
   toActOffline,
   canStart,
 }: {
-  data: RoomData;
+  data: Pick<RoomData, "poker" | "online" | "clockOffset">;
   run: (a: string, b?: object) => Promise<void>;
   isHost: boolean;
+  solo?: boolean;
   onRankings: () => void;
   onRebuy: () => void;
   onLog: () => void;
@@ -393,9 +396,9 @@ function ActionPanel({
               )}
               {seat && (
                 <>
-                  <button className="btn-ghost px-3 py-2 text-sm" onClick={() => run("sitOut", { value: !seat.sittingOut })}>
+                  {!solo && <button className="btn-ghost px-3 py-2 text-sm" onClick={() => run("sitOut", { value: !seat.sittingOut })}>
                     {seat.sittingOut ? "Revenir en jeu" : "Faire une pause"}
-                  </button>
+                  </button>}
                   <button className="btn-ghost px-3 py-2 text-sm" onClick={onRebuy}>
                     Recaver
                   </button>
