@@ -23,6 +23,7 @@ export function PokerTable({ data, run, isHost, solo = false }: { data: Pick<Roo
   const [rebuy, setRebuy] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const narrow = useNarrow();
+  const showCombo = prefs.showHelp || h?.stage === "done";
 
   const live = h && h.stage !== "done";
   const myTurn = !!me?.legal;
@@ -85,7 +86,7 @@ export function PokerTable({ data, run, isHost, solo = false }: { data: Pick<Roo
               <div className="flex gap-1 sm:gap-1.5" aria-label="Cartes communes">
                 {[0, 1, 2, 3, 4].map((i) =>
                   h.board[i] ? (
-                    <PlayingCard key={h.number + "-" + i} card={h.board[i]} size={narrow ? "md" : "lg"} delay={i < 3 ? i * 0.12 : 0} highlight={isInBest(h, mySeat, h.board[i])} />
+                    <PlayingCard key={h.number + "-" + i} card={h.board[i]} size={narrow ? "md" : "lg"} delay={i < 3 ? i * 0.12 : 0} highlight={showCombo && isInBest(h, mySeat, h.board[i], me?.handInfo?.cards)} />
                   ) : (
                     <div key={i} className={`${narrow ? "h-[4.2rem] w-12" : "h-[5.6rem] w-16"} rounded-lg border border-dashed border-gold/20`} />
                   ),
@@ -141,7 +142,7 @@ export function PokerTable({ data, run, isHost, solo = false }: { data: Pick<Roo
                 {ph && (
                   <div className={`mb-[-10px] flex ${isMe ? "gap-1" : "-space-x-3"} ${ph.folded ? "opacity-40" : ""}`}>
                     {ph.hole.map((c: string | null, k: number) => (
-                      <PlayingCard key={h.number + "-" + k} card={c} size={isMe ? (narrow ? "md" : "lg") : "sm"} delay={k * 0.15} highlight={isMe && isInBest(h, mySeat, c)} />
+                      <PlayingCard key={h.number + "-" + k} card={c} size={isMe ? (narrow ? "md" : "lg") : "sm"} delay={k * 0.15} highlight={isMe && showCombo && isInBest(h, mySeat, c, me?.handInfo?.cards)} />
                     ))}
                   </div>
                 )}
@@ -224,8 +225,9 @@ export function PokerTable({ data, run, isHost, solo = false }: { data: Pick<Roo
   );
 }
 
-function isInBest(h: any, mySeat: number | null, card: string | null) {
-  if (!card || mySeat === null || h.stage !== "done") return false;
+function isInBest(h: any, mySeat: number | null, card: string | null, combo?: string[]) {
+  if (!card || mySeat === null) return false;
+  if (h.stage !== "done") return !!combo?.includes(card) && !h.players?.[mySeat]?.folded;
   return !!h.result?.shown?.[mySeat]?.best?.includes(card) && h.result.pots.some((x: any) => x.winners.includes(mySeat));
 }
 
@@ -299,15 +301,7 @@ function ActionPanel({
       <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
         <div className="min-w-[12rem] flex-1">
           {me?.handInfo ? (
-            <>
-              <p className="text-xs text-gold-pale/60">Votre main</p>
-              <p className="font-marquee text-2xl text-gold">{me.handInfo.label}</p>
-              {me.handInfo.draws.map((d: string) => (
-                <p key={d} className="text-xs text-gold-pale/70">
-                  {d}
-                </p>
-              ))}
-            </>
+            <HandHelper info={me.handInfo} legal={legal} pot={h?.pot ?? 0} live={!!h && h.stage !== "done" && !h.players?.[me.seat]?.folded} />
           ) : seat ? (
             <p className="text-sm text-gold-pale/70">{h && h.stage !== "done" ? "Vous attendez la prochaine main." : "Vous êtes assis. La main suivante démarre automatiquement."}</p>
           ) : (
@@ -478,6 +472,91 @@ function HandLog({ poker }: { poker: any }) {
         ))}
         {!lines.length && <li className="text-gold-pale/50">Aucune action pour l'instant.</li>}
       </ol>
+    </div>
+  );
+}
+
+const LADDER = ["Carte haute", "Paire", "Double paire", "Brelan", "Quinte", "Couleur", "Full", "Carré", "Quinte flush"];
+
+/** Panneau d'aide : la main expliquée, sa force, les chances et un conseil. */
+function HandHelper({ info, legal, pot, live }: { info: any; legal: any; pot: number; live: boolean }) {
+  const { prefs } = useApp();
+  const [open, setOpen] = useState(true);
+  const help = prefs.showHelp;
+  const eq = info.equity as number | null;
+  const odds = info.potOdds as number | null;
+  const pct = (x: number) => `${Math.round(x * 100)} %`;
+  let advice: { text: string; tone: "good" | "warn" | "neutral" } | null = null;
+  if (live && legal && eq !== null) {
+    if (legal.toCall > 0 && odds !== null) {
+      advice =
+        eq >= odds
+          ? { text: `Suivre coûte ${legal.toCall} VC pour un pot de ${pot} : il suffit de gagner ${pct(odds)} du temps pour que ce soit rentable. Avec environ ${pct(eq)}, suivre se défend.`, tone: "good" }
+          : { text: `Suivre coûte ${legal.toCall} VC pour un pot de ${pot} : il faudrait gagner au moins ${pct(odds)} du temps. Avec environ ${pct(eq)}, se coucher est souvent le plus sage${info.draws.length ? ", sauf si vous visez votre tirage" : ""}.`, tone: "warn" };
+    } else if (legal.check) {
+      advice =
+        eq >= 0.6
+          ? { text: "Personne n'a misé et votre main est solide : miser permet de faire grossir le pot.", tone: "good" }
+          : { text: "Personne n'a misé : vous pouvez parler gratuitement et voir la suite.", tone: "neutral" };
+    }
+  }
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-xs text-gold-pale/60">Votre main</p>
+        {help && (
+          <button className="text-xs text-gold/80 hover:text-gold" onClick={() => setOpen(!open)} aria-expanded={open}>
+            {open ? "Masquer l'aide" : "Afficher l'aide"}
+          </button>
+        )}
+      </div>
+      <p className="font-marquee text-2xl text-gold">{info.label}</p>
+      {help && open && (
+        <div className="mt-1 space-y-2">
+          <p className="text-sm leading-snug text-gold-pale/80">{info.explain}</p>
+          <div aria-label={`Force de la main : ${LADDER[info.category]}, ${info.category + 1}e sur 9`}>
+            <div className="flex gap-[3px]">
+              {LADDER.map((l, i) => (
+                <span
+                  key={l}
+                  title={l}
+                  className={`h-2 flex-1 rounded-sm ${i === info.category ? "bg-gold shadow-[0_0_8px_rgba(217,180,90,.8)]" : i < info.category ? "bg-gold/45" : "bg-white/10"}`}
+                />
+              ))}
+            </div>
+            <div className="mt-0.5 flex justify-between text-[10px] text-gold-pale/45">
+              <span>Carte haute</span>
+              <span>Quinte flush</span>
+            </div>
+          </div>
+          {info.draws.map((d: string) => (
+            <p key={d} className="text-xs text-emerald-300/90">
+              ↗ {d}
+            </p>
+          ))}
+          {live && eq !== null && (
+            <div>
+              <div className="flex items-center gap-2 text-xs text-gold-pale/70">
+                <span className="shrink-0" title="Estimation contre des mains au hasard : un adversaire qui mise fort a souvent mieux.">Chances estimées contre {info.opponents} adversaire{info.opponents > 1 ? "s" : ""}</span>
+                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                  <span className="block h-full rounded-full bg-gold" style={{ width: pct(eq) }} />
+                </span>
+                <b className="tabular-nums text-gold-pale">≈ {pct(eq)}</b>
+              </div>
+            </div>
+          )}
+          {advice && (
+            <p className={`rounded-md px-2.5 py-1.5 text-xs leading-snug ${advice.tone === "good" ? "bg-emerald-900/40 text-emerald-200" : advice.tone === "warn" ? "bg-ruby/20 text-[#ffc2cb]" : "bg-white/5 text-gold-pale/75"}`}>
+              {advice.text}
+            </p>
+          )}
+        </div>
+      )}
+      {!help && info.draws.map((d: string) => (
+        <p key={d} className="text-xs text-gold-pale/70">
+          {d}
+        </p>
+      ))}
     </div>
   );
 }

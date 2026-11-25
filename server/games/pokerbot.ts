@@ -5,8 +5,8 @@
  * Sa personnalité (serré/large, agressif/passif, bluffeur) et le niveau choisi
  * modulent la décision. Le bot ne voit que SES cartes et le tableau.
  */
-import { newDeck, randomInt, type Card } from "./cards.js";
-import { fastScore, encodeCard } from "./evaluator.js";
+import { randomInt } from "./cards.js";
+import { estimateEquity } from "./evaluator.js";
 import * as P from "./poker.js";
 
 export type BotLevel = "facile" | "normal" | "difficile";
@@ -31,47 +31,7 @@ export const BOTS: BotProfile[] = [
 
 const rand = () => randomInt(1_000_000) / 1_000_000;
 
-/** Équité estimée : part moyenne du pot gagnée contre `opponents` mains aléatoires. */
-export function estimateEquity(hole: Card[], board: Card[], opponents: number, sims: number): number {
-  const known = new Set([...hole, ...board]);
-  const rest = newDeck().filter((c) => !known.has(c)).map(encodeCard);
-  const h = hole.map(encodeCard);
-  const b = board.map(encodeCard);
-  const need = 5 - b.length;
-  const mineBuf = new Array<number>(7);
-  const oppBuf = new Array<number>(7);
-  const deck = rest.slice();
-  let score = 0;
-  for (let s = 0; s < sims; s++) {
-    // mélange partiel (Fisher-Yates) des cartes nécessaires
-    const take = need + opponents * 2;
-    for (let i = 0; i < take; i++) {
-      const j = i + randomInt(deck.length - i);
-      const tmp = deck[i];
-      deck[i] = deck[j];
-      deck[j] = tmp;
-    }
-    for (let i = 0; i < b.length; i++) mineBuf[2 + i] = oppBuf[2 + i] = b[i];
-    for (let i = 0; i < need; i++) mineBuf[2 + b.length + i] = oppBuf[2 + b.length + i] = deck[i];
-    mineBuf[0] = h[0];
-    mineBuf[1] = h[1];
-    const mine = fastScore(mineBuf, 7);
-    let best = true;
-    let ties = 1;
-    for (let o = 0; o < opponents; o++) {
-      oppBuf[0] = deck[need + o * 2];
-      oppBuf[1] = deck[need + o * 2 + 1];
-      const v = fastScore(oppBuf, 7);
-      if (v > mine) {
-        best = false;
-        break;
-      }
-      if (v === mine) ties++;
-    }
-    if (best) score += 1 / ties;
-  }
-  return score / sims;
-}
+export { estimateEquity };
 
 export interface BotDecision {
   type: P.ActionType;

@@ -1,4 +1,4 @@
-import { Card, rankValue, suitOf, rankSingular, rankA, rankAux, rankDe, rankPlural } from "./cards.js";
+import { Card, rankValue, suitOf, rankSingular, rankA, rankAux, rankDe, rankPlural, newDeck, randomInt } from "./cards.js";
 
 export const CATEGORY_NAMES = [
   "Carte haute",
@@ -114,34 +114,84 @@ export function evaluateBest(cards: Card[]): HandValue {
   return best!;
 }
 
+export interface HandHelp {
+  label: string;
+  category: number;
+  draws: string[];
+  /** cartes qui forment la combinaison (sans les cartes d'appoint) */
+  cards: Card[];
+  /** explication en langage simple */
+  explain: string;
+  /** la combinaison est entièrement sur la table : tout le monde la partage */
+  shared: boolean;
+}
+
+const EXPLAIN = [
+  "Aucune combinaison : seule votre plus haute carte compte. C'est la main la plus faible ; elle gagne rarement à l'abattage.",
+  "Deux cartes de même valeur. Main modeste : plus la paire est haute, mieux c'est.",
+  "Deux paires différentes. Une bonne main, qui bat toutes les paires simples.",
+  "Trois cartes de même valeur. Une main forte.",
+  "Cinq cartes qui se suivent. Une main très forte.",
+  "Cinq cartes de la même couleur. Une main très forte.",
+  "Un brelan et une paire ensemble. Une main excellente.",
+  "Quatre cartes de même valeur. Presque imbattable.",
+  "Cinq cartes qui se suivent, de la même couleur. Presque imbattable.",
+];
+
+/** Cartes qui forment la combinaison parmi les 5 meilleures. */
+function comboCards(v: HandValue): Card[] {
+  const c = v.category;
+  if (c >= 4 && c !== 7) return v.best;
+  if (c === 0) return v.best.filter((x) => rankValue(x) === v.tiebreak[0]).slice(0, 1);
+  const n = c === 7 ? 1 : c === 2 ? 2 : 1;
+  const ranks = v.tiebreak.slice(0, n);
+  return v.best.filter((x) => ranks.includes(rankValue(x)));
+}
+
 /**
- * Description pédagogique de la main actuelle (2 à 7 cartes), avec tirages.
- * Utilisé pour l'aide aux débutants : « Paire de Rois », « Tirage couleur »…
+ * Description pédagogique de la main actuelle (2 à 7 cartes) :
+ * libellé (« Paire de Rois »), explication, cartes de la combinaison, tirages.
  */
-export function describeCurrent(hole: Card[], board: Card[]): { label: string; category: number; draws: string[] } {
+export function describeCurrent(hole: Card[], board: Card[]): HandHelp {
   const all = [...hole, ...board];
   let label: string;
   let category: number;
+  let cards: Card[];
   if (all.length >= 5) {
     const v = evaluateBest(all);
     label = v.label;
     category = v.category;
+    cards = comboCards(v);
   } else {
     const vals = all.map(rankValue).sort((a, b) => b - a);
     if (vals.length === 2 && vals[0] === vals[1]) {
       label = `Paire ${rankDe(vals[0])}`;
       category = 1;
+      cards = hole.slice();
     } else {
       label = `Carte haute ${rankSingular(vals[0])}`;
       category = 0;
+      cards = all.filter((c) => rankValue(c) === vals[0]).slice(0, 1);
     }
   }
+  const shared = board.length >= 3 && cards.every((c) => board.includes(c));
+  let explain = EXPLAIN[category];
+  if (category === 0 && board.length === 0) {
+    const vals = hole.map(rankValue).sort((a, b) => b - a);
+    const suited = hole[0][1] === hole[1][1];
+    const connected = vals[0] - vals[1] === 1;
+    explain = `Pas encore de combinaison avant le flop. ${vals[0] >= 12 ? `Votre ${rankSingular(vals[0])} est une bonne carte haute.` : "Vos cartes sont plutôt basses."}${suited ? " Elles sont de la même couleur : une couleur reste possible." : ""}${connected ? " Elles se suivent : une quinte reste possible." : ""}`;
+  } else if (category === 1 && board.length === 0) {
+    explain = "Une paire servie d'entrée : c'est un très bon départ avant le flop.";
+  }
+  if (shared && category > 0) explain += " Attention : cette combinaison est entièrement sur la table, tous les joueurs l'ont aussi.";
+
   const draws: string[] = [];
   if (board.length >= 3 && board.length < 5) {
     if (category < 5) {
       const suitCounts = new Map<string, number>();
       for (const c of all) suitCounts.set(suitOf(c), (suitCounts.get(suitOf(c)) ?? 0) + 1);
-      if ([...suitCounts.values()].some((n) => n === 4)) draws.push("Tirage couleur (il manque 1 carte de la même couleur)");
+      if ([...suitCounts.values()].some((n) => n === 4)) draws.push("Tirage couleur : il manque 1 carte de la même couleur (environ 9 cartes vous aident)");
     }
     if (category < 4) {
       const set = new Set(all.map(rankValue));
@@ -152,11 +202,52 @@ export function describeCurrent(hole: Card[], board: Card[]): { label: string; c
         const missing = window.filter((v) => !set.has(v));
         if (missing.length === 1) outs.add(missing[0] === 1 ? 14 : missing[0]);
       }
-      if (outs.size >= 2) draws.push("Tirage quinte par les deux bouts (2 hauteurs de cartes la complètent)");
-      else if (outs.size === 1) draws.push(`Tirage quinte (il manque un ${rankSingular([...outs][0])})`);
+      if (outs.size >= 2) draws.push("Tirage quinte par les deux bouts : 2 hauteurs de cartes la complètent (environ 8 cartes)");
+      else if (outs.size === 1) draws.push(`Tirage quinte : il manque un ${rankSingular([...outs][0])} (environ 4 cartes)`);
     }
   }
-  return { label, category, draws };
+  return { label, category, draws, cards, explain, shared };
+}
+
+/** Équité estimée (part moyenne du pot gagnée) contre `opponents` mains aléatoires. */
+export function estimateEquity(hole: Card[], board: Card[], opponents: number, sims: number): number {
+  const known = new Set([...hole, ...board]);
+  const rest = newDeck().filter((c) => !known.has(c)).map(encodeCard);
+  const h = hole.map(encodeCard);
+  const b = board.map(encodeCard);
+  const need = 5 - b.length;
+  const mineBuf = new Array<number>(7);
+  const oppBuf = new Array<number>(7);
+  const deck = rest.slice();
+  let score = 0;
+  for (let s = 0; s < sims; s++) {
+    const take = need + opponents * 2;
+    for (let i = 0; i < take; i++) {
+      const j = i + randomInt(deck.length - i);
+      const tmp = deck[i];
+      deck[i] = deck[j];
+      deck[j] = tmp;
+    }
+    for (let i = 0; i < b.length; i++) mineBuf[2 + i] = oppBuf[2 + i] = b[i];
+    for (let i = 0; i < need; i++) mineBuf[2 + b.length + i] = oppBuf[2 + b.length + i] = deck[i];
+    mineBuf[0] = h[0];
+    mineBuf[1] = h[1];
+    const mine = fastScore(mineBuf, 7);
+    let best = true;
+    let ties = 1;
+    for (let o = 0; o < opponents; o++) {
+      oppBuf[0] = deck[need + o * 2];
+      oppBuf[1] = deck[need + o * 2 + 1];
+      const v = fastScore(oppBuf, 7);
+      if (v > mine) {
+        best = false;
+        break;
+      }
+      if (v === mine) ties++;
+    }
+    if (best) score += 1 / ties;
+  }
+  return score / sims;
 }
 
 // ------------------------------------------------------------------ évaluation rapide

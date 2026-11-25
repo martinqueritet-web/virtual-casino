@@ -221,3 +221,38 @@ describe("évaluateur rapide", () => {
     }
   });
 });
+
+describe("aide pédagogique enrichie", () => {
+  it("double paire : les 4 cartes de la combinaison, sans la carte d'appoint", () => {
+    const d = describeCurrent(["Kh", "7d"], ["Kc", "7s", "2h", "Jd"]);
+    expect(d.label).toBe("Double paire Rois et Sept");
+    expect(d.cards.sort()).toEqual(["7d", "7s", "Kc", "Kh"].sort());
+    expect(d.explain).toMatch(/Deux paires/);
+    expect(d.shared).toBe(false);
+  });
+  it("carte haute : explication et carte mise en avant", () => {
+    const d = describeCurrent(["Ah", "9d"], ["Kc", "7s", "2h"]);
+    expect(d.label).toBe("Carte haute As");
+    expect(d.cards).toEqual(["Ah"]);
+    expect(d.explain).toMatch(/Aucune combinaison/);
+  });
+  it("prévient quand la combinaison est entièrement sur la table", () => {
+    const d = describeCurrent(["Ah", "9d"], ["Kc", "Ks", "2h"]);
+    expect(d.label).toBe("Paire de Rois");
+    expect(d.shared).toBe(true);
+    expect(d.explain).toMatch(/tous les joueurs/);
+  });
+  it("avant le flop : conseils sur les cartes de départ", () => {
+    expect(describeCurrent(["Qh", "Jh"], []).explain).toMatch(/même couleur.*se suivent/s);
+    expect(describeCurrent(["8c", "8d"], []).explain).toMatch(/très bon départ/);
+  });
+  it("la vue du joueur donne ses chances et la cote du pot", () => {
+    const t = table3();
+    P.startHand(t);
+    const me = (P.viewFor(t, "a") as any).me.handInfo;
+    expect(me.equity).toBeGreaterThan(0);
+    expect(me.equity).toBeLessThan(1);
+    expect(me.potOdds).toBeCloseTo(10 / 25, 2); // 10 à payer pour un pot de 15
+    expect(me.opponents).toBe(2);
+  });
+});
