@@ -132,7 +132,7 @@ export async function resetWallet(userId: string) {
     if (seated.rowCount) throw new ApiError(400, "Quittez d'abord votre table de poker pour réinitialiser votre portefeuille");
     const solo = await c.query("SELECT 1 FROM solo_poker WHERE user_id = $1", [userId]);
     if (solo.rowCount) throw new ApiError(400, "Quittez d'abord votre table contre les bots pour réinitialiser votre portefeuille");
-    const bj = await c.query("SELECT 1 FROM blackjack_games WHERE user_id = $1 AND state->>'stage' = 'player' AND (state->>'practice')::boolean = false", [userId]);
+    const bj = await c.query("SELECT 1 FROM blackjack_games WHERE user_id = $1 AND state->>'stage' <> 'done' AND (state->>'practice')::boolean = false", [userId]);
     if (bj.rowCount) throw new ApiError(400, "Terminez votre main de blackjack en cours");
     const { rows } = await c.query<{ balance: number }>("SELECT balance FROM wallets WHERE user_id = $1 FOR UPDATE", [userId]);
     const delta = START_BALANCE - rows[0].balance;

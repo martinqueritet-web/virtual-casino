@@ -23,7 +23,7 @@ async function bjSettled(c: Parameters<Parameters<typeof tx>[0]>[0], userId: str
   if (g.totalPayout > 0) await credit(c, userId, g.totalPayout, "BJ_PAYOUT", g.message ?? null);
   const res = g.hands.map((h) => h.result!);
   const wins = res.filter((r) => r === "win" || r === "blackjack").length;
-  const losses = res.filter((r) => r === "lose" || r === "bust").length;
+  const losses = res.filter((r) => r === "lose" || r === "bust" || r === "surrender").length;
   const pushes = res.filter((r) => r === "push").length;
   await c.query(
     `UPDATE game_stats SET bj_rounds = bj_rounds + 1, bj_wins = bj_wins + $2, bj_losses = bj_losses + $3,
@@ -44,9 +44,11 @@ export async function bjStart(userId: string, body: any) {
   if (!(bet >= BJ_MIN && bet <= BJ_MAX)) throw new ApiError(400, `Mise entre ${BJ_MIN} et ${BJ_MAX} VC`);
   return tx(async (c) => {
     const { rows } = await c.query<{ state: BJ.BJGame }>("SELECT state FROM blackjack_games WHERE user_id = $1 FOR UPDATE", [userId]);
-    if (rows[0] && rows[0].state.stage === "player" && !rows[0].state.practice) throw new ApiError(400, "Terminez d'abord la manche en cours");
+    if (rows[0] && rows[0].state.stage !== "done" && !rows[0].state.practice) throw new ApiError(400, "Terminez d'abord la manche en cours");
     if (!practice) await debit(c, userId, bet, "BJ_BET", "Mise blackjack");
-    const g = BJ.newGame(bet, practice);
+    // le sabot est conservé d'une manche à l'autre jusqu'à la carte de coupe
+    const prev = rows[0]?.state;
+    const g = BJ.newGame(bet, practice, prev?.shoe && prev.stage === "done" ? { shoe: prev.shoe, discards: prev.discards ?? 0 } : undefined);
     await bjSettled(c, userId, g);
     await c.query(
       "INSERT INTO blackjack_games (user_id, state) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET state = EXCLUDED.state, updated_at = NOW()",
@@ -59,7 +61,7 @@ export async function bjStart(userId: string, body: any) {
 
 export async function bjAction(userId: string, body: any) {
   const action = body.action as BJ.BJAction;
-  if (!["hit", "stand", "double", "split"].includes(action)) throw new ApiError(400, "Action inconnue");
+  if (!["hit", "stand", "double", "split", "surrender"].includes(action)) throw new ApiError(400, "Action inconnue");
   return tx(async (c) => {
     const { rows } = await c.query<{ state: BJ.BJGame }>("SELECT state FROM blackjack_games WHERE user_id = $1 FOR UPDATE", [userId]);
     const g = rows[0]?.state;
@@ -72,6 +74,22 @@ export async function bjAction(userId: string, body: any) {
     } catch (e) {
       throw new ApiError(400, (e as Error).message);
     }
+    await bjSettled(c, userId, g);
+    await c.query("UPDATE blackjack_games SET state = $2, updated_at = NOW() WHERE user_id = $1", [userId, JSON.stringify(g)]);
+    const { rows: b } = await c.query<{ balance: number }>("SELECT balance FROM wallets WHERE user_id = $1", [userId]);
+    return { game: BJ.bjView(g), balance: b[0].balance };
+  });
+}
+
+export async function bjInsurance(userId: string, body: any) {
+  const take = !!body.take;
+  return tx(async (c) => {
+    const { rows } = await c.query<{ state: BJ.BJGame }>("SELECT state FROM blackjack_games WHERE user_id = $1 FOR UPDATE", [userId]);
+    const g = rows[0]?.state;
+    if (!g || g.stage !== "insurance") throw new ApiError(400, "L'assurance n'est pas proposée");
+    const cost = BJ.insuranceCost(g);
+    if (take && cost > 0 && !g.practice) await debit(c, userId, cost, "BJ_BET", "Assurance");
+    BJ.decideInsurance(g, take && cost > 0);
     await bjSettled(c, userId, g);
     await c.query("UPDATE blackjack_games SET state = $2, updated_at = NOW() WHERE user_id = $1", [userId, JSON.stringify(g)]);
     const { rows: b } = await c.query<{ balance: number }>("SELECT balance FROM wallets WHERE user_id = $1", [userId]);

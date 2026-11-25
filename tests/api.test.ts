@@ -82,6 +82,10 @@ describe("comptes et portefeuille", () => {
     const r = await call("POST", "/blackjack/start", u.token, { bet: 20 });
     expect(r.status).toBe(200);
     let g = r.data.game;
+    if (g.stage === "insurance") {
+      expect(r.data.game.insuranceCost).toBe(10);
+      g = (await call("POST", "/blackjack/insurance", u.token, { take: true })).data.game;
+    }
     if (g.stage === "player") {
       expect(g.dealer[1]).toBeNull(); // carte cachée
       expect((await call("POST", "/blackjack/start", u.token, { bet: 20 })).status).toBe(400);
@@ -92,8 +96,19 @@ describe("comptes et portefeuille", () => {
     const bal = (await call("GET", "/me", u.token)).data.balance;
     expect(bal).toBe(500 - g.totalBet + g.totalPayout);
 
+    // plusieurs manches : le sabot diminue (il n'est pas remélangé à chaque fois)
+    const shoeA = g.shoe.remaining;
+    let n = await call("POST", "/blackjack/start", u.token, { bet: 2 });
+    while (n.data.game.stage !== "done") {
+      n = n.data.game.stage === "insurance"
+        ? await call("POST", "/blackjack/insurance", u.token, { take: false })
+        : await call("POST", "/blackjack/action", u.token, { action: "stand" });
+    }
+    expect(n.data.game.shoe.remaining).toBeLessThan(shoeA);
+    expect(n.data.balance).toBe(bal - n.data.game.totalBet + n.data.game.totalPayout);
+
     const p = await call("POST", "/blackjack/start", u.token, { bet: 100, practice: true });
-    expect(p.data.balance).toBe(bal); // entraînement : portefeuille intact
+    expect(p.data.balance).toBe(n.data.balance); // entraînement : portefeuille intact
     if (p.data.game.stage === "player") expect(p.data.game.hint.explanation).toBeTruthy();
   });
 

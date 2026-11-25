@@ -146,8 +146,9 @@ export function RulesPage() {
           <h2 className="mb-3 font-marquee text-3xl text-gold">Le blackjack</h2>
           <div className="space-y-2 text-gold-pale/85">
             <p>Approchez-vous le plus possible de 21 sans le dépasser, et battez le croupier. Les figures valent 10, l'As vaut 1 ou 11.</p>
-            <p>Tirer : recevoir une carte. Rester : garder votre total. Doubler : doubler la mise et recevoir une seule carte. Séparer : jouer une paire en deux mains distinctes.</p>
-            <p>Règles de cette table : 6 jeux de cartes, le croupier reste sur 17, blackjack payé 3 pour 2, doubler autorisé après séparation, les As séparés ne reçoivent qu'une carte.</p>
+            <p>Tirer : recevoir une carte. Rester : garder votre total. Doubler : doubler la mise et recevoir une seule carte. Séparer : jouer une paire en deux mains distinctes. Abandonner : renoncer avec vos 2 premières cartes et récupérer la moitié de la mise.</p>
+            <p>Assurance : quand le croupier montre un As, vous pouvez miser la moitié de votre mise sur son blackjack. Elle paie 2 pour 1, mais à long terme elle coûte plus qu'elle ne rapporte.</p>
+            <p>Règles de cette table : sabot de 6 jeux remélangé à la carte de coupe (environ aux trois quarts), le croupier reste sur 17, blackjack payé 3 pour 2, doubler autorisé après séparation, les As séparés ne reçoivent qu'une carte.</p>
           </div>
         </section>
         <section>

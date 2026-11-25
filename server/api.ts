@@ -67,6 +67,7 @@ export async function handle(req: Request): Promise<Response> {
 
     if (M === "GET" && path === "/blackjack") return json(await solo.bjGet(user.id));
     if (M === "POST" && path === "/blackjack/start") return json(await solo.bjStart(user.id, b));
+    if (M === "POST" && path === "/blackjack/insurance") return json(await solo.bjInsurance(user.id, b));
     if (M === "POST" && path === "/blackjack/action") return json(await solo.bjAction(user.id, b));
     if (M === "GET" && path === "/solo-poker") return json(await soloPoker.soloGet(user.id));
     if (M === "POST" && path === "/solo-poker/start") return json(await soloPoker.soloStart(user, b));
