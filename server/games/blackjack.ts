@@ -71,6 +71,22 @@ export function handValue(cards: Card[]): { total: number; soft: boolean } {
   return { total, soft: aces > 0 };
 }
 
+/**
+ * Met à niveau une manche enregistrée par une version précédente du jeu
+ * (avant l'assurance et le sabot conservé) : champs manquants = valeurs neutres.
+ */
+export function normalize(g: BJGame): BJGame {
+  g.discards ??= 0;
+  g.reshuffled ??= false;
+  g.insurance ??= 0;
+  g.insurancePayout ??= 0;
+  g.insuranceDecided ??= true;
+  g.feedback ??= [];
+  g.totalBet ??= g.hands.reduce((a, h) => a + h.bet, 0);
+  g.totalPayout ??= 0;
+  return g;
+}
+
 export const isBlackjack = (h: Card[]) => h.length === 2 && handValue(h).total === 21;
 
 /** Sabot pour la manche suivante : on garde l'ancien tant que la carte de coupe n'est pas sortie. */
@@ -272,7 +288,7 @@ function settle(g: BJGame) {
     payout += h.payout;
   }
   if (g.insurance > 0) g.insurancePayout = dealerBJ ? g.insurance * 3 : 0;
-  payout += g.insurancePayout;
+  payout += g.insurancePayout || 0;
   g.totalPayout = payout;
   g.dealerBlackjack = dealerBJ;
   g.stage = "done";

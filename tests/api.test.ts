@@ -112,6 +112,32 @@ describe("comptes et portefeuille", () => {
     if (p.data.game.stage === "player") expect(p.data.game.hint.explanation).toBeTruthy();
   });
 
+  it("une manche commencée avant une mise à jour se termine sans erreur", async () => {
+    const u = await signup("Ancien");
+    // manche au format de la version précédente : ni assurance, ni défausse
+    const legacy = {
+      shoe: ["2c", "3d", "4h", "5s", "6c", "7d", "8h", "9s"],
+      dealer: ["9h", "7c"],
+      hands: [{ cards: ["Ts", "8d"], bet: 20, doubled: false, done: false, splitAces: false, fromSplit: false }],
+      active: 0,
+      stage: "player",
+      practice: false,
+      feedback: [],
+      totalBet: 20,
+      totalPayout: 0,
+    };
+    await pool.query("UPDATE wallets SET balance = 480 WHERE user_id = $1", [u.id]);
+    await pool.query("INSERT INTO blackjack_games (user_id, state) VALUES ($1, $2)", [u.id, JSON.stringify(legacy)]);
+    expect((await call("GET", "/blackjack", u.token)).status).toBe(200);
+    const r = await call("POST", "/blackjack/action", u.token, { action: "stand" });
+    expect(r.status).toBe(200);
+    expect(r.data.game.stage).toBe("done");
+    expect(r.data.game.hands[0].result).toBe("win"); // 18 contre 16 + 8 = 24 : le croupier dépasse
+    expect(r.data.balance).toBe(520);
+    // et la manche suivante repart normalement
+    expect((await call("POST", "/blackjack/start", u.token, { bet: 10 })).status).toBe(200);
+  });
+
   it("réinitialisation du portefeuille", async () => {
     const u = await signup("Resetter");
     await call("POST", "/slots/spin", u.token, { machine: "neon", bet: 25 });

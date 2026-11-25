@@ -11,6 +11,7 @@ const BJ_MAX = 500;
 async function bjSettled(c: Parameters<Parameters<typeof tx>[0]>[0], userId: string, g: BJ.BJGame) {
   if (g.stage !== "done") return;
   const net = g.totalPayout - g.totalBet;
+  if (!Number.isFinite(net)) throw new Error("Manche de blackjack incohérente : montant non numérique");
   if (g.practice) {
     const decisions = g.feedback.length;
     const correct = g.feedback.filter((f) => f.correct).length;
@@ -35,7 +36,7 @@ async function bjSettled(c: Parameters<Parameters<typeof tx>[0]>[0], userId: str
 
 export async function bjGet(userId: string) {
   const { rows } = await q<{ state: BJ.BJGame }>("SELECT state FROM blackjack_games WHERE user_id = $1", [userId]);
-  return { game: rows[0] ? BJ.bjView(rows[0].state) : null, balance: await balanceOf(userId) };
+  return { game: rows[0] ? BJ.bjView(BJ.normalize(rows[0].state)) : null, balance: await balanceOf(userId) };
 }
 
 export async function bjStart(userId: string, body: any) {
@@ -64,7 +65,7 @@ export async function bjAction(userId: string, body: any) {
   if (!["hit", "stand", "double", "split", "surrender"].includes(action)) throw new ApiError(400, "Action inconnue");
   return tx(async (c) => {
     const { rows } = await c.query<{ state: BJ.BJGame }>("SELECT state FROM blackjack_games WHERE user_id = $1 FOR UPDATE", [userId]);
-    const g = rows[0]?.state;
+    const g = rows[0]?.state ? BJ.normalize(rows[0].state) : undefined;
     if (!g || g.stage !== "player") throw new ApiError(400, "Aucune manche en cours");
     if (!BJ.legal(g)[action]) throw new ApiError(400, "Action impossible pour cette main");
     const cost = BJ.actionCost(g, action);
@@ -85,7 +86,7 @@ export async function bjInsurance(userId: string, body: any) {
   const take = !!body.take;
   return tx(async (c) => {
     const { rows } = await c.query<{ state: BJ.BJGame }>("SELECT state FROM blackjack_games WHERE user_id = $1 FOR UPDATE", [userId]);
-    const g = rows[0]?.state;
+    const g = rows[0]?.state ? BJ.normalize(rows[0].state) : undefined;
     if (!g || g.stage !== "insurance") throw new ApiError(400, "L'assurance n'est pas proposée");
     const cost = BJ.insuranceCost(g);
     if (take && cost > 0 && !g.practice) await debit(c, userId, cost, "BJ_BET", "Assurance");
