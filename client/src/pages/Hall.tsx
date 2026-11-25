@@ -77,15 +77,18 @@ export function Hall() {
           <p className="mt-4 text-center text-gold-pale/70">
             Bonsoir {user!.username}. Votre portefeuille contient {fmt(useApp().balance)} VC.
           </p>
-          <div className="mx-auto mt-6 grid max-w-3xl grid-cols-3 gap-2 sm:gap-3">
+          <div className="mx-auto mt-6 grid max-w-4xl grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3">
             {[
               ["🃏", "Poker", () => document.getElementById("poker")?.scrollIntoView({ behavior: "smooth" })],
-              ["🎰", "Machines à sous", () => document.getElementById("machines")?.scrollIntoView({ behavior: "smooth" })],
               ["♠️", "Blackjack", () => go("blackjack")],
+              ["🎡", "Roulette", () => go("roulette")],
+              ["💎", "Mines", () => go("mines")],
+              ["🔻", "Plinko", () => go("plinko")],
+              ["🎰", "Machines", () => document.getElementById("machines")?.scrollIntoView({ behavior: "smooth" })],
             ].map(([icon, label, fn]) => (
-              <button key={label as string} onClick={fn as () => void} className="panel flex flex-col items-center gap-1 px-2 py-3 hover:border-gold/50 sm:flex-row sm:justify-center sm:gap-3 sm:py-4">
+              <button key={label as string} onClick={fn as () => void} className="panel flex flex-col items-center gap-1 px-1 py-3 hover:border-gold/50">
                 <span className="text-3xl">{icon as string}</span>
-                <span className="text-sm font-medium text-gold-pale sm:text-base">{label as string}</span>
+                <span className="text-sm font-medium text-gold-pale">{label as string}</span>
               </button>
             ))}
           </div>
@@ -138,6 +141,61 @@ export function Hall() {
           </div>
         </section>
 
+        <section id="jeux" className="mt-12 scroll-mt-20">
+          <h2 className="font-marquee text-4xl text-gold">Jeux de table et jeux rapides</h2>
+          <p className="mb-5 mt-1 text-gold-pale/75">Tous les résultats sont tirés par le serveur, et chaque jeu affiche son taux de retour.</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <GameTile
+              title="Blackjack"
+              text="Battez le croupier sans dépasser 21. Sabot de 6 jeux, assurance, abandon, et un mode entraînement qui corrige vos erreurs."
+              onClick={() => go("blackjack")}
+              art={
+                <div className="flex -space-x-5">
+                  <PlayingCard card="As" size="lg" />
+                  <PlayingCard card="Kh" size="lg" />
+                </div>
+              }
+            />
+            <GameTile
+              title="Roulette"
+              text="Roulette européenne à un zéro : misez sur un numéro, une couleur, une douzaine… puis lancez la bille."
+              onClick={() => go("roulette")}
+              art={<RouletteArt />}
+            />
+            <GameTile
+              title="Mines"
+              text="25 cases, des diamants et des mines. Chaque diamant fait grimper vos gains : encaissez avant de tomber sur une mine."
+              onClick={() => go("mines")}
+              art={
+                <div className="grid grid-cols-3 gap-1 text-xl" aria-hidden>
+                  {Array.from("💎·💎·💣·💎·💎").map((c, i) => (
+                    <span key={i} className={`grid h-7 w-7 place-items-center rounded-md ${c === "·" ? "bg-felt-light/60" : "bg-black/40"}`}>
+                      {c === "·" ? "" : c}
+                    </span>
+                  ))}
+                </div>
+              }
+            />
+            <GameTile
+              title="Plinko"
+              text="Lâchez la bille et regardez-la rebondir sur 12 rangées de clous jusqu'à une case de gain. Trois niveaux de risque."
+              onClick={() => go("plinko")}
+              art={
+                <svg viewBox="0 0 80 70" className="w-20" aria-hidden>
+                  {[0, 1, 2, 3].map((r) => Array.from({ length: r + 2 }, (_, j) => <circle key={r + "-" + j} cx={40 + (j - (r + 1) / 2) * 14} cy={10 + r * 13} r={2.5} fill="#f3e6c4" />))}
+                  {["#c0334a", "#e07b39", "#3f6b5a", "#e07b39", "#c0334a"].map((c, i) => (
+                    <rect key={i} x={7 + i * 14} y={60} width={12} height={8} rx={2} fill={c} />
+                  ))}
+                  <circle cx={47} cy={30} r={4} fill="#e8c46c" />
+                </svg>
+              }
+            />
+          </div>
+          <button onClick={() => go("stats")} className="mt-4 text-sm text-gold underline-offset-4 hover:underline">
+            Voir mes statistiques
+          </button>
+        </section>
+
         {/* Machines à sous : section dédiée, juste après le poker */}
         <section id="machines" className="mt-12 scroll-mt-20">
           <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -158,30 +216,30 @@ export function Hall() {
               ))}
             </ol>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
             {machines.map((m) => (
               <button
                 key={m.id}
                 onClick={() => go("slots/" + m.id)}
-                className="group flex flex-col rounded-2xl border-2 p-4 text-left transition-transform hover:-translate-y-1"
+                className="group flex flex-col rounded-2xl border-2 p-3 text-left transition-transform hover:-translate-y-1 sm:p-4"
                 style={{ background: `linear-gradient(170deg, ${m.palette.from}, ${m.palette.to})`, borderColor: m.palette.accent + "99" }}
               >
                 <div className="relative mb-3 grid grid-cols-3 gap-1.5 rounded-xl bg-black p-1.5" aria-hidden>
                   {[0, 1, 2].map((i) => (
-                    <span key={i} className="grid h-14 place-items-center rounded-md bg-gradient-to-b from-[#e9e2cf] via-white to-[#e9e2cf] text-3xl">
+                    <span key={i} className="grid h-10 place-items-center rounded-md bg-gradient-to-b from-[#e9e2cf] via-white to-[#e9e2cf] text-2xl sm:h-14 sm:text-3xl">
                       {m.symbols[0].icon}
                     </span>
                   ))}
                   <span className="pointer-events-none absolute inset-x-1 top-1/2 h-[2px] -translate-y-1/2" style={{ background: m.palette.accent, boxShadow: `0 0 8px ${m.palette.accent}` }} />
                 </div>
-                <div className="text-lg font-semibold" style={{ color: m.palette.accent }}>
+                <div className="text-base font-semibold leading-tight sm:text-lg" style={{ color: m.palette.accent }}>
                   {m.name}
                 </div>
                 <div className="text-sm text-gold-pale/65">{m.tagline}</div>
                 <div className="mt-1 text-xs text-gold-pale/55">
                   3 × {m.symbols[0].name} = mise × 200
                 </div>
-                <span className="mt-4 rounded-lg py-2 text-center font-semibold text-velvet" style={{ background: m.palette.accent }}>
+                <span className="mt-3 rounded-lg py-1.5 text-center font-semibold text-velvet sm:mt-4 sm:py-2" style={{ background: m.palette.accent }}>
                   Jouer
                 </span>
               </button>
@@ -189,25 +247,6 @@ export function Hall() {
           </div>
         </section>
 
-        <section className="mt-10 grid gap-5 md:grid-cols-2">
-          <GameTile
-            title="Blackjack"
-            text="Affrontez le croupier. Le mode entraînement explique chaque décision et corrige vos erreurs, sans toucher à votre portefeuille."
-            onClick={() => go("blackjack")}
-            art={
-              <div className="flex -space-x-5">
-                <PlayingCard card="As" size="lg" />
-                <PlayingCard card="Kh" size="lg" />
-              </div>
-            }
-          />
-          <GameTile
-            title="Mes statistiques"
-            text="Mains jouées, victoires, meilleure main, évolution de votre solde et historique des parties."
-            onClick={() => go("stats")}
-            art={<div className="font-marquee text-5xl text-gold">%</div>}
-          />
-        </section>
 
       </main>
       <SettingsModal open={settings} onClose={() => setSettings(false)} />
@@ -224,5 +263,20 @@ function GameTile({ title, text, onClick, art }: { title: string; text: string; 
         <p className="mt-1 text-sm text-gold-pale/70">{text}</p>
       </div>
     </button>
+  );
+}
+
+function RouletteArt() {
+  const n = 18;
+  return (
+    <svg viewBox="-40 -40 80 80" className="w-20" aria-hidden>
+      {Array.from({ length: n }, (_, i) => {
+        const a0 = (i / n) * Math.PI * 2;
+        const a1 = ((i + 1) / n) * Math.PI * 2;
+        return <path key={i} d={`M0 0 L${38 * Math.cos(a0)} ${38 * Math.sin(a0)} A38 38 0 0 1 ${38 * Math.cos(a1)} ${38 * Math.sin(a1)} Z`} fill={i === 0 ? "#16794a" : i % 2 ? "#b3283d" : "#151515"} stroke="#d9b45a" strokeWidth="0.5" />;
+      })}
+      <circle r="20" fill="#7a5a1e" stroke="#d9b45a" />
+      <circle r="5" fill="#f3e6c4" />
+    </svg>
   );
 }

@@ -130,6 +130,8 @@ export async function resetWallet(userId: string) {
   return tx(async (c) => {
     const seated = await c.query(SEATED_SQL, [userId]);
     if (seated.rowCount) throw new ApiError(400, "Quittez d'abord votre table de poker pour réinitialiser votre portefeuille");
+    const mines = await c.query("SELECT 1 FROM mines_games WHERE user_id = $1 AND state->>'stage' = 'playing'", [userId]);
+    if (mines.rowCount) throw new ApiError(400, "Terminez d'abord votre partie de Mines");
     const solo = await c.query("SELECT 1 FROM solo_poker WHERE user_id = $1", [userId]);
     if (solo.rowCount) throw new ApiError(400, "Quittez d'abord votre table contre les bots pour réinitialiser votre portefeuille");
     const bj = await c.query("SELECT 1 FROM blackjack_games WHERE user_id = $1 AND state->>'stage' <> 'done' AND (state->>'practice')::boolean = false", [userId]);

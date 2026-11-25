@@ -6,7 +6,7 @@ import { TopBar, Avatar } from "../components/UI";
 import { SettingsModal } from "../components/Settings";
 
 const COLORS = ["#d9b45a", "#c0334a", "#1c8064", "#4f7bd9", "#9b59d0", "#e07b39", "#3fb6b0", "#e8e2d0"];
-const GAME_FR: Record<string, string> = { poker: "Poker", blackjack: "Blackjack", slots: "Machines à sous" };
+const GAME_FR: Record<string, string> = { poker: "Poker", blackjack: "Blackjack", slots: "Machines à sous", mines: "Mines", roulette: "Roulette", plinko: "Plinko" };
 
 export function ProfilePage() {
   const { user, avatars, updateUser, toast, signOut, setBalance } = useApp();
@@ -124,6 +124,29 @@ export function ProfilePage() {
                   ["Blackjacks", fmt(s.bj_blackjacks)],
                   ["Bilan", `${s.bj_net > 0 ? "+" : ""}${fmt(s.bj_net)} VC`],
                   ["Entraînement : bonnes décisions", pct(s.bj_practice_correct, s.bj_practice_decisions)],
+                ]}
+              />
+              <StatCard
+                title="Mines"
+                rows={[
+                  ["Parties", fmt(s.mines_rounds ?? 0)],
+                  ["Meilleur multiplicateur", `×${Number(s.mines_best_mult ?? 0).toFixed(2)}`],
+                  ["Bilan", `${s.mines_net > 0 ? "+" : ""}${fmt(s.mines_net ?? 0)} VC`],
+                ]}
+              />
+              <StatCard
+                title="Roulette"
+                rows={[
+                  ["Tours", fmt(s.roulette_spins ?? 0)],
+                  ["Bilan", `${s.roulette_net > 0 ? "+" : ""}${fmt(s.roulette_net ?? 0)} VC`],
+                ]}
+              />
+              <StatCard
+                title="Plinko"
+                rows={[
+                  ["Billes lâchées", fmt(s.plinko_drops ?? 0)],
+                  ["Meilleur multiplicateur", `×${Number(s.plinko_best_mult ?? 0)}`],
+                  ["Bilan", `${s.plinko_net > 0 ? "+" : ""}${fmt(s.plinko_net ?? 0)} VC`],
                 ]}
               />
               <StatCard

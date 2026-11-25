@@ -260,6 +260,21 @@ function ActionPanel({
   const legal = me?.legal;
   const [raise, setRaise] = useState(0);
   const [raising, setRaising] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(() => {
+    try {
+      return localStorage.getItem("vc_poker_help") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const setHelp = (v: boolean) => {
+    setHelpOpen(v);
+    try {
+      localStorage.setItem("vc_poker_help", v ? "1" : "0");
+    } catch {
+      /* ignoré */
+    }
+  };
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -297,27 +312,56 @@ function ActionPanel({
   const pot = h?.pot ?? 0;
 
   return (
-    <div className="panel sticky bottom-2 z-30 mx-auto w-full max-w-[980px] p-3 sm:p-4">
-      <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
-        <div className="min-w-[12rem] flex-1">
+    <div className="panel sticky bottom-2 z-30 mx-auto w-full max-w-[980px] p-2 sm:p-3">
+      {/* détails de l'aide : s'ouvrent au-dessus de la barre, sans la faire grandir */}
+      <AnimatePresence>
+        {helpOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            className="absolute inset-x-0 bottom-full mb-2 max-h-[55dvh] overflow-y-auto rounded-xl border border-gold/30 bg-[#04110c]/95 p-4 shadow-2xl backdrop-blur scroll-thin"
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-semibold text-gold-pale">Aide</span>
+              <button className="px-1 text-xl leading-none text-gold-pale/60 hover:text-gold" onClick={() => setHelp(false)} aria-label="Fermer l'aide">
+                ×
+              </button>
+            </div>
+            {me?.handInfo ? (
+              <HandDetails info={me.handInfo} legal={legal} pot={h?.pot ?? 0} live={!!h && h.stage !== "done" && !h.players?.[me.seat]?.folded} />
+            ) : (
+              <p className="text-sm text-gold-pale/70">L'aide s'affiche ici pendant que vous jouez une main.</p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-gold/10 pt-2 text-xs">
+              <button className="text-gold hover:underline" onClick={onRankings}>
+                Les combinaisons
+              </button>
+              <button className="text-gold hover:underline" onClick={onLog}>
+                Historique des actions
+              </button>
+              <span className="text-gold-pale/50">
+                Blinds {p.sb}/{p.bb}
+              </span>
+              <span className="text-gold-pale/50">Raccourcis : F coucher · C parole/suivre · R relancer · A tapis</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+        <div className="min-w-0 flex-1">
           {me?.handInfo ? (
-            <HandHelper info={me.handInfo} legal={legal} pot={h?.pot ?? 0} live={!!h && h.stage !== "done" && !h.players?.[me.seat]?.folded} />
-          ) : seat ? (
-            <p className="text-sm text-gold-pale/70">{h && h.stage !== "done" ? "Vous attendez la prochaine main." : "Vous êtes assis. La main suivante démarre automatiquement."}</p>
+            <HandSummary info={me.handInfo} legal={legal} live={!!h && h.stage !== "done" && !h.players?.[me.seat]?.folded} helpOpen={helpOpen} onHelp={() => setHelp(!helpOpen)} />
           ) : (
-            <p className="text-sm text-gold-pale/70">Vous regardez la partie. Cliquez sur « S'asseoir » autour de la table pour jouer.</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm text-gold-pale/70">
+                {seat ? (h && h.stage !== "done" ? "Vous attendez la prochaine main." : "La main suivante démarre automatiquement.") : "Cliquez sur « S'asseoir » autour de la table pour jouer."}
+              </p>
+              <button className="shrink-0 rounded-full border border-gold/30 px-2.5 py-1 text-xs text-gold" onClick={() => setHelp(!helpOpen)} aria-expanded={helpOpen}>
+                Aide
+              </button>
+            </div>
           )}
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-            <button className="text-gold underline-offset-2 hover:underline" onClick={onRankings}>
-              Combinaisons
-            </button>
-            <button className="text-gold underline-offset-2 hover:underline" onClick={onLog}>
-              Historique
-            </button>
-            <span className="text-gold-pale/50">
-              Blinds {p.sb}/{p.bb}
-            </span>
-          </div>
         </div>
 
         <div className="flex flex-col items-stretch gap-2">
@@ -360,8 +404,8 @@ function ActionPanel({
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-2 sm:flex">
-                  <ActBtn label="Se coucher" hint="Abandonner la main (F)" onClick={() => act("fold")} disabled={busy} kind="ruby" />
+                <div className="grid grid-cols-4 gap-1.5 sm:flex sm:gap-2">
+                  <ActBtn label="Coucher" hint="Abandonner la main (F)" onClick={() => act("fold")} disabled={busy} kind="ruby" />
                   {legal.check ? (
                     <ActBtn label="Parole" hint="Passer sans miser (C)" onClick={() => act("check")} disabled={busy} kind="felt" />
                   ) : (
@@ -370,9 +414,6 @@ function ActionPanel({
                   <ActBtn label={h.currentBet === 0 ? "Miser" : "Relancer"} hint="Augmenter la mise (R)" onClick={() => setRaising(true)} disabled={busy || !legal.raise} kind="gold" />
                   <ActBtn label={`Tapis ${fmt(legal.allIn)}`} hint="Miser tous vos jetons (A)" onClick={() => act("allin")} disabled={busy || !legal.allIn} kind="ghost" />
                 </div>
-                <Help>
-                  C'est à vous. {legal.toCall > 0 ? `Il faut ${fmt(legal.toCall)} VC pour suivre.` : "Personne n'a misé : vous pouvez parler gratuitement."}
-                </Help>
               </>
             )
           ) : (
@@ -412,9 +453,9 @@ function ActionPanel({
 function ActBtn({ label, hint, onClick, disabled, kind }: { label: string; hint: string; onClick: () => void; disabled?: boolean; kind: "gold" | "felt" | "ruby" | "ghost" }) {
   const { prefs } = useApp();
   return (
-    <button className={`btn-${kind} flex-col gap-0 px-4 py-2`} onClick={onClick} disabled={disabled} title={hint}>
-      <span>{label}</span>
-      {prefs.showHelp && <span className="text-[10px] font-normal opacity-70">{hint}</span>}
+    <button className={`btn-${kind} flex-col gap-0 px-1.5 py-2 text-sm sm:px-3 sm:text-base xl:px-4`} onClick={onClick} disabled={disabled} title={hint}>
+      <span className="leading-tight">{label}</span>
+      {prefs.showHelp && <span className="hidden text-[10px] font-normal opacity-70 2xl:block">{hint}</span>}
     </button>
   );
 }
@@ -478,85 +519,85 @@ function HandLog({ poker }: { poker: any }) {
 
 const LADDER = ["Carte haute", "Paire", "Double paire", "Brelan", "Quinte", "Couleur", "Full", "Carré", "Quinte flush"];
 
-/** Panneau d'aide : la main expliquée, sa force, les chances et un conseil. */
-function HandHelper({ info, legal, pot, live }: { info: any; legal: any; pot: number; live: boolean }) {
-  const { prefs } = useApp();
-  const [open, setOpen] = useState(true);
-  const help = prefs.showHelp;
+function adviceFor(info: any, legal: any, pot: number, live: boolean) {
   const eq = info.equity as number | null;
   const odds = info.potOdds as number | null;
   const pct = (x: number) => `${Math.round(x * 100)} %`;
-  let advice: { text: string; tone: "good" | "warn" | "neutral" } | null = null;
-  if (live && legal && eq !== null) {
-    if (legal.toCall > 0 && odds !== null) {
-      advice =
-        eq >= odds
-          ? { text: `Suivre coûte ${legal.toCall} VC pour un pot de ${pot} : il suffit de gagner ${pct(odds)} du temps pour que ce soit rentable. Avec environ ${pct(eq)}, suivre se défend.`, tone: "good" }
-          : { text: `Suivre coûte ${legal.toCall} VC pour un pot de ${pot} : il faudrait gagner au moins ${pct(odds)} du temps. Avec environ ${pct(eq)}, se coucher est souvent le plus sage${info.draws.length ? ", sauf si vous visez votre tirage" : ""}.`, tone: "warn" };
-    } else if (legal.check) {
-      advice =
-        eq >= 0.6
-          ? { text: "Personne n'a misé et votre main est solide : miser permet de faire grossir le pot.", tone: "good" }
-          : { text: "Personne n'a misé : vous pouvez parler gratuitement et voir la suite.", tone: "neutral" };
-    }
-  }
+  if (!live || !legal || eq === null) return null;
+  if (legal.toCall > 0 && odds !== null)
+    return eq >= odds
+      ? { ok: true, short: "suivre rentable", text: `Suivre coûte ${legal.toCall} VC pour un pot de ${pot} : il suffit de gagner ${pct(odds)} du temps pour que ce soit rentable. Avec environ ${pct(eq)}, suivre se défend.` }
+      : { ok: false, short: "suivre risqué", text: `Suivre coûte ${legal.toCall} VC pour un pot de ${pot} : il faudrait gagner au moins ${pct(odds)} du temps. Avec environ ${pct(eq)}, se coucher est souvent le plus sage${info.draws.length ? ", sauf si vous visez votre tirage" : ""}.` };
+  if (legal.check)
+    return eq >= 0.6
+      ? { ok: true, short: "main solide", text: "Personne n'a misé et votre main est solide : miser permet de faire grossir le pot." }
+      : { ok: null, short: "parole gratuite", text: "Personne n'a misé : vous pouvez parler gratuitement et voir la suite." };
+  return null;
+}
+
+/** Une seule ligne : main, force, chances, signal. */
+function HandSummary({ info, legal, live, helpOpen, onHelp }: { info: any; legal: any; live: boolean; helpOpen: boolean; onHelp: () => void }) {
+  const { prefs } = useApp();
+  const adv = prefs.showHelp ? adviceFor(info, legal, 0, live) : null;
   return (
-    <div>
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="text-xs text-gold-pale/60">Votre main</p>
-        {help && (
-          <button className="text-xs text-gold/80 hover:text-gold" onClick={() => setOpen(!open)} aria-expanded={open}>
-            {open ? "Masquer l'aide" : "Afficher l'aide"}
-          </button>
-        )}
-      </div>
-      <p className="font-marquee text-2xl text-gold">{info.label}</p>
-      {help && open && (
-        <div className="mt-1 space-y-2">
-          <p className="text-sm leading-snug text-gold-pale/80">{info.explain}</p>
-          <div aria-label={`Force de la main : ${LADDER[info.category]}, ${info.category + 1}e sur 9`}>
-            <div className="flex gap-[3px]">
-              {LADDER.map((l, i) => (
-                <span
-                  key={l}
-                  title={l}
-                  className={`h-2 flex-1 rounded-sm ${i === info.category ? "bg-gold shadow-[0_0_8px_rgba(217,180,90,.8)]" : i < info.category ? "bg-gold/45" : "bg-white/10"}`}
-                />
-              ))}
-            </div>
-            <div className="mt-0.5 flex justify-between text-[10px] text-gold-pale/45">
-              <span>Carte haute</span>
-              <span>Quinte flush</span>
-            </div>
-          </div>
-          {info.draws.map((d: string) => (
-            <p key={d} className="text-xs text-emerald-300/90">
-              ↗ {d}
-            </p>
-          ))}
-          {live && eq !== null && (
-            <div>
-              <div className="flex items-center gap-2 text-xs text-gold-pale/70">
-                <span className="shrink-0" title="Estimation contre des mains au hasard : un adversaire qui mise fort a souvent mieux.">Chances estimées contre {info.opponents} adversaire{info.opponents > 1 ? "s" : ""}</span>
-                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
-                  <span className="block h-full rounded-full bg-gold" style={{ width: pct(eq) }} />
-                </span>
-                <b className="tabular-nums text-gold-pale">≈ {pct(eq)}</b>
-              </div>
-            </div>
+    <div className="flex items-center gap-2 sm:gap-3">
+      <button className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-sm font-semibold ${helpOpen ? "border-gold bg-gold text-velvet" : "border-gold/40 text-gold"}`} onClick={onHelp} aria-expanded={helpOpen} aria-label="Aide : explication de la main et conseils" title="Aide">
+        ?
+      </button>
+      <span className="min-w-0 shrink-0 truncate font-marquee text-lg text-gold sm:text-xl" style={{ maxWidth: "100%" }} title={info.label}>
+        {info.label}
+      </span>
+      {prefs.showHelp && (
+        <>
+          <span className="hidden w-14 shrink-0 gap-[2px] lg:flex" aria-hidden title={`Force : ${LADDER[info.category]}`}>
+            {LADDER.map((l, i) => (
+              <span key={l} className={`h-1.5 flex-1 rounded-sm ${i <= info.category ? (i === info.category ? "bg-gold" : "bg-gold/45") : "bg-white/10"}`} />
+            ))}
+          </span>
+          {live && info.equity !== null && (
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-xs tabular-nums text-gold-pale" title={adv?.text ?? "Chances estimées contre des mains au hasard"}>
+              {adv && adv.ok !== null && <span className={`h-2 w-2 rounded-full ${adv.ok ? "bg-emerald-400" : "bg-ruby"}`} />}≈ {Math.round(info.equity * 100)} %
+              {adv && <span className="hidden text-gold-pale/60 2xl:inline">· {adv.short}</span>}
+            </span>
           )}
-          {advice && (
-            <p className={`rounded-md px-2.5 py-1.5 text-xs leading-snug ${advice.tone === "good" ? "bg-emerald-900/40 text-emerald-200" : advice.tone === "warn" ? "bg-ruby/20 text-[#ffc2cb]" : "bg-white/5 text-gold-pale/75"}`}>
-              {advice.text}
-            </p>
-          )}
-        </div>
+          {info.draws.length > 0 && <span className="hidden shrink-0 text-xs text-emerald-300/90 xl:inline">↗ tirage</span>}
+        </>
       )}
-      {!help && info.draws.map((d: string) => (
-        <p key={d} className="text-xs text-gold-pale/70">
-          {d}
+    </div>
+  );
+}
+
+/** Détails complets, affichés à la demande au-dessus de la barre. */
+function HandDetails({ info, legal, pot, live }: { info: any; legal: any; pot: number; live: boolean }) {
+  const eq = info.equity as number | null;
+  const adv = adviceFor(info, legal, pot, live);
+  return (
+    <div className="space-y-2.5">
+      <p className="font-marquee text-2xl text-gold">{info.label}</p>
+      <p className="text-sm leading-snug text-gold-pale/80">{info.explain}</p>
+      <div aria-label={`Force de la main : ${LADDER[info.category]}, ${info.category + 1}e sur 9`}>
+        <div className="flex gap-[3px]">
+          {LADDER.map((l, i) => (
+            <span key={l} title={l} className={`h-2 flex-1 rounded-sm ${i === info.category ? "bg-gold shadow-[0_0_8px_rgba(217,180,90,.8)]" : i < info.category ? "bg-gold/45" : "bg-white/10"}`} />
+          ))}
+        </div>
+        <div className="mt-0.5 flex justify-between text-[10px] text-gold-pale/45">
+          <span>Carte haute</span>
+          <span>Quinte flush</span>
+        </div>
+      </div>
+      {info.draws.map((d: string) => (
+        <p key={d} className="text-xs text-emerald-300/90">
+          ↗ {d}
         </p>
       ))}
+      {live && eq !== null && (
+        <p className="text-xs text-gold-pale/70">
+          Chances estimées contre {info.opponents} adversaire{info.opponents > 1 ? "s" : ""} : <b className="text-gold-pale">≈ {Math.round(eq * 100)} %</b>
+          <span className="text-gold-pale/45"> (calculées contre des mains au hasard ; un adversaire qui mise fort a souvent mieux)</span>
+        </p>
+      )}
+      {adv && <p className={`rounded-md px-2.5 py-1.5 text-xs leading-snug ${adv.ok ? "bg-emerald-900/40 text-emerald-200" : adv.ok === false ? "bg-ruby/20 text-[#ffc2cb]" : "bg-white/5 text-gold-pale/75"}`}>{adv.text}</p>}
     </div>
   );
 }

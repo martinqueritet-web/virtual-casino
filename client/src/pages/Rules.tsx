@@ -152,6 +152,25 @@ export function RulesPage() {
           </div>
         </section>
         <section>
+          <h2 className="mb-3 font-marquee text-3xl text-gold">La roulette européenne</h2>
+          <div className="space-y-2 text-gold-pale/85">
+            <p>Le cylindre compte 37 cases : les numéros de 1 à 36, rouges ou noirs, et un zéro vert. Placez vos jetons sur le tapis, puis lancez la bille.</p>
+            <p>Un numéro seul paie 35 pour 1. Une douzaine ou une colonne paie 2 pour 1. Rouge ou noir, pair ou impair, 1 à 18 ou 19 à 36 paient 1 pour 1. Si le zéro sort, ces chances simples perdent.</p>
+          </div>
+        </section>
+        <section>
+          <h2 className="mb-3 font-marquee text-3xl text-gold">Les Mines</h2>
+          <div className="space-y-2 text-gold-pale/85">
+            <p>Choisissez votre mise et le nombre de mines (de 1 à 24) cachées parmi 25 cases. Chaque case sûre découverte révèle un diamant et augmente le multiplicateur.</p>
+            <p>Vous pouvez encaisser à tout moment après une première case. Une mine fait perdre la mise. Le multiplicateur correspond aux vraies chances, avec un taux de retour de 97 %.</p>
+            <p>Preuve d'équité : avant votre premier clic, le serveur publie l'empreinte de la grille. À la fin, la grille est dévoilée et votre navigateur vérifie qu'elle n'a pas été modifiée.</p>
+          </div>
+        </section>
+        <section>
+          <h2 className="mb-3 font-marquee text-3xl text-gold">Le Plinko</h2>
+          <p className="text-gold-pale/85">La bille tombe à travers 12 rangées de clous et rebondit à gauche ou à droite avec une chance sur deux. La case où elle termine multiplie votre mise. Les cases du centre sont les plus fréquentes et paient le moins ; celles des bords sont rares et paient le plus. Taux de retour théorique d'environ 99 %.</p>
+        </section>
+        <section>
           <h2 className="mb-3 font-marquee text-3xl text-gold">Les machines à sous</h2>
           <p className="text-gold-pale/85">
             Trois rouleaux, une ligne de gain au centre. Chaque résultat est tiré par le serveur avec un générateur aléatoire cryptographique : le navigateur ne peut pas l'influencer. La table des gains et le taux de retour théorique sont affichés sur chaque machine. Il n'y a ni achat, ni lancement automatique.

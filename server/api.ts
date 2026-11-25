@@ -3,6 +3,7 @@ import * as core from "./core.js";
 import * as rooms from "./rooms.js";
 import * as solo from "./solo.js";
 import * as soloPoker from "./soloPoker.js";
+import * as casino from "./casino.js";
 import { publicMachines } from "./games/slots.js";
 import { ApiError } from "./core.js";
 
@@ -40,6 +41,7 @@ export async function handle(req: Request): Promise<Response> {
     if (M === "POST" && path === "/auth/register") return json(await core.register(b.username, b.password), 201);
     if (M === "POST" && path === "/auth/login") return json(await core.login(b.username, b.password));
     if (M === "GET" && path === "/slots/machines") return json(publicMachines());
+    if (M === "GET" && path === "/casino/info") return json(casino.casinoInfo());
 
     // ---- authentifié
     if (M === "POST" && path === "/auth/logout") {
@@ -76,6 +78,11 @@ export async function handle(req: Request): Promise<Response> {
     if (M === "POST" && path === "/solo-poker/next") return json(await soloPoker.soloNext(user));
     if (M === "POST" && path === "/solo-poker/rebuy") return json(await soloPoker.soloRebuy(user, b));
     if (M === "POST" && path === "/solo-poker/leave") return json(await soloPoker.soloLeave(user));
+    if (M === "GET" && path === "/mines") return json(await casino.minesGet(user.id));
+    if (M === "POST" && path === "/mines/start") return json(await casino.minesStart(user.id, b));
+    if (M === "POST" && path === "/mines/action") return json(await casino.minesAction(user.id, b));
+    if (M === "POST" && path === "/roulette/spin") return json(await casino.rouletteSpin(user.id, b));
+    if (M === "POST" && path === "/plinko/drop") return json(await casino.plinkoDrop(user.id, b));
     if (M === "POST" && path === "/slots/spin") return json(await solo.slotSpin(user.id, b));
 
     throw new ApiError(404, "Route inconnue");

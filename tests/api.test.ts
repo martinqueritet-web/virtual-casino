@@ -146,6 +146,56 @@ describe("comptes et portefeuille", () => {
   });
 });
 
+describe("Mines, Roulette, Plinko", () => {
+  it("Mines : grille secrète, encaissement, mine touchée, journal exact", async () => {
+    const u = await signup("Mineur");
+    let r = await call("POST", "/mines/start", u.token, { bet: 50, mines: 3 });
+    expect(r.status).toBe(200);
+    expect(r.data.balance).toBe(450);
+    expect(r.data.game.layout).toBeNull();
+    expect((await call("POST", "/mines/start", u.token, { bet: 50, mines: 3 })).status).toBe(400);
+    expect((await call("POST", "/wallet/reset", u.token)).status).toBe(400);
+    const layout: number[] = (await pool.query("SELECT state FROM mines_games WHERE user_id = $1", [u.id])).rows[0].state.layout;
+    const safe = [...Array(25).keys()].filter((c) => !layout.includes(c));
+    r = await call("POST", "/mines/action", u.token, { cell: safe[0] });
+    r = await call("POST", "/mines/action", u.token, { cell: safe[1] });
+    expect(r.data.game.multiplier).toBeGreaterThan(1);
+    r = await call("POST", "/mines/action", u.token, { action: "cashout" });
+    expect(r.data.game.stage).toBe("cashed");
+    expect(r.data.balance).toBe(450 + r.data.game.payout);
+    expect(r.data.game.layout).toEqual(layout);
+    // deuxième partie : on touche une mine
+    await call("POST", "/mines/start", u.token, { bet: 20, mines: 24 });
+    const lay2: number[] = (await pool.query("SELECT state FROM mines_games WHERE user_id = $1", [u.id])).rows[0].state.layout;
+    r = await call("POST", "/mines/action", u.token, { cell: lay2[0] });
+    expect(r.data.game.stage).toBe("lost");
+    const ledger = await pool.query("SELECT SUM(amount)::int s FROM wallet_tx WHERE user_id = $1", [u.id]);
+    expect(ledger.rows[0].s).toBe(r.data.balance);
+    expect((await call("GET", "/stats", u.token)).data.stats.mines_rounds).toBe(2);
+  });
+
+  it("Roulette : plusieurs mises, gains crédités, limites", async () => {
+    const u = await signup("Rouletteur");
+    expect((await call("POST", "/roulette/spin", u.token, { bets: [{ type: "rouge", amount: 400 }, { type: "noir", amount: 200 }] })).status).toBe(400);
+    const r = await call("POST", "/roulette/spin", u.token, { bets: [{ type: "plein", value: 17, amount: 10 }, { type: "rouge", amount: 20 }] });
+    expect(r.status).toBe(200);
+    expect(r.data.number).toBeGreaterThanOrEqual(0);
+    expect(r.data.balance).toBe(500 - 30 + r.data.payout);
+  });
+
+  it("Plinko : chemin, multiplicateur et solde cohérents", async () => {
+    const u = await signup("Plinkeur");
+    expect((await call("POST", "/plinko/drop", u.token, { bet: 10, risk: "extreme" })).status).toBe(400);
+    let bal = 500;
+    for (let i = 0; i < 10; i++) {
+      const r = await call("POST", "/plinko/drop", u.token, { bet: 10, risk: "eleve" });
+      expect(r.data.path).toHaveLength(12);
+      expect(r.data.balance).toBe(bal - 10 + r.data.payout);
+      bal = r.data.balance;
+    }
+  });
+});
+
 describe("poker solo contre les bots", () => {
   it("partie complète : cave, bots, mains successives, départ", async () => {
     const u = await signup("Solo");
