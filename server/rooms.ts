@@ -169,12 +169,32 @@ function removeMember(s: RoomState, userId: string) {
   }
 }
 
+/**
+ * Fait avancer une main bloquée : tant que le joueur qui a la parole est absent
+ * (déconnecté ou parti du salon), il parle si possible, sinon il se couche.
+ * S'arrête dès qu'un joueur connecté doit décider.
+ */
+async function unblockHand(c: Q, s: RoomState) {
+  for (let i = 0; i < 80 && P.handInProgress(s.poker); i++) {
+    const h = s.poker.hand!;
+    if (h.toAct === null) break;
+    const who = s.poker.seats[h.toAct]!;
+    const present = s.members.some((m) => m.userId === who.userId) && (await isOnline(c, s.code, who.userId));
+    if (present) break;
+    P.forceAbsentAction(s.poker);
+    s.poker.log.push(`${who.username} est absent : action automatique`);
+  }
+}
+
 /** Quitter la table de poker (jetons rendus au portefeuille, ou à la fin de la main). */
 async function standUp(c: Q, s: RoomState, userId: string) {
   const r = P.leave(s.poker, userId);
+  if (r.deferred) await unblockHand(c, s); // ne pas laisser les jetons bloqués si les autres sont partis
+  const before = P.seatOf(s.poker, userId);
   await settlePoker(c, s);
+  const released = r.deferred && before !== -1 && P.seatOf(s.poker, userId) === -1;
   if (r.cashOut > 0) await credit(c, userId, r.cashOut, "POKER_CASH_OUT", s.code);
-  return r;
+  return { ...r, deferred: r.deferred && !released };
 }
 
 export async function leaveRoom(u: User, code: string) {
@@ -368,6 +388,47 @@ export async function roomAction(u: User, code: string, action: string, body: an
     await save(c, s);
     return { ok: true };
   });
+}
+
+/** Tables où l'utilisateur a encore des jetons (y compris des salons qu'il a quittés). */
+export async function seatedTables(userId: string) {
+  const { rows } = await q<{ code: string; state: RoomState }>(
+    `SELECT code, state FROM rooms WHERE jsonb_path_exists(state, '$.poker.seats[*] ? (@.userId == $uid)', jsonb_build_object('uid', $1::text))`,
+    [userId],
+  );
+  return rows.map((r) => {
+    const t = r.state.poker;
+    const i = P.seatOf(t, userId);
+    const ph = t.hand && P.handInProgress(t) ? t.hand.players[i] : undefined;
+    return {
+      code: r.code,
+      stack: t.seats[i]!.stack,
+      inHand: ph ? ph.total : 0,
+      member: r.state.members.some((m) => m.userId === userId),
+    };
+  });
+}
+
+/** Récupère les jetons de toutes les tables. Retourne les tables encore bloquées par une main en cours. */
+export async function reclaimAllSeats(userId: string) {
+  const codes = (await seatedTables(userId)).map((t) => t.code);
+  const pending: string[] = [];
+  for (const code of codes) {
+    const r = await tx(async (c) => {
+      const s = await lock(c, code);
+      if (P.seatOf(s.poker, userId) === -1) return { deferred: false };
+      const out = await standUp(c, s, userId);
+      // salon vide et plus personne d'assis : on le ferme
+      if (!s.members.length && !s.poker.seats.some(Boolean)) {
+        await c.query("DELETE FROM rooms WHERE code = $1", [code]);
+        return out;
+      }
+      await save(c, s);
+      return out;
+    });
+    if (r.deferred) pending.push(code);
+  }
+  return { pending };
 }
 
 /** Rend les jetons laissés sur des tables abandonnées depuis plus de 12 h. */

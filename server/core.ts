@@ -128,8 +128,12 @@ export async function balanceOf(userId: string, c: Q = { query: q }): Promise<nu
 /** Réinitialisation gratuite à 500 VC (impossible si des jetons sont posés sur une table). */
 export async function resetWallet(userId: string) {
   return tx(async (c) => {
-    const seated = await c.query(SEATED_SQL, [userId]);
-    if (seated.rowCount) throw new ApiError(400, "Quittez d'abord votre table de poker pour réinitialiser votre portefeuille");
+    const seated = await c.query<{ code: string }>(SEATED_SQL, [userId]);
+    if (seated.rowCount)
+      throw new ApiError(
+        400,
+        `Une main est encore en cours au salon ${seated.rows.map((r) => r.code).join(", ")} : vos jetons vous seront rendus dès qu'elle se termine. Réessayez dans un instant.`,
+      );
     const mines = await c.query("SELECT 1 FROM mines_games WHERE user_id = $1 AND state->>'stage' = 'playing'", [userId]);
     if (mines.rowCount) throw new ApiError(400, "Terminez d'abord votre partie de Mines");
     const solo = await c.query("SELECT 1 FROM solo_poker WHERE user_id = $1", [userId]);

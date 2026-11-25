@@ -352,6 +352,42 @@ describe("salons multijoueurs et poker", () => {
     expect(s.online).toContain(z.id);
   });
 
+  it("jetons bloqués : quitter le salon en pleine main puis les autres disparaissent", async () => {
+    const a = await signup("Bloque");
+    const b = await signup("Parti");
+    const c = await signup("Absent");
+    const { code } = (await call("POST", "/rooms", a.token)).data;
+    await call("POST", "/rooms/join", b.token, { code });
+    await call("POST", "/rooms/join", c.token, { code });
+    await call("POST", `/rooms/${code}/sit`, a.token, { seat: 0, buyIn: 500 });
+    await call("POST", `/rooms/${code}/sit`, b.token, { seat: 1, buyIn: 300 });
+    await call("POST", `/rooms/${code}/sit`, c.token, { seat: 2, buyIn: 300 });
+    await call("POST", `/rooms/${code}/start`, a.token);
+    const tok: Record<string, string> = { [a.id]: a.token, [b.id]: b.token, [c.id]: c.token };
+    // on joue jusqu'à ce que ce ne soit pas à A de parler
+    let s = (await call("GET", `/rooms/${code}?v=0`, a.token)).data;
+    while (s.poker.seats[s.poker.hand.toAct].userId === a.id) {
+      await call("POST", `/rooms/${code}/act`, a.token, { type: "call" });
+      s = (await call("GET", `/rooms/${code}?v=0`, a.token)).data;
+    }
+    // A quitte le salon en pleine main : il se couche, ses jetons attendent la fin de la main
+    await call("POST", `/rooms/${code}/leave`, a.token);
+    let t = (await call("GET", "/me/tables", a.token)).data.tables;
+    expect(t).toHaveLength(1);
+    expect(t[0].member).toBe(false);
+    // B et C sont connectés : rien n'est forcé
+    let r = await call("POST", "/me/tables/reclaim", a.token);
+    expect(r.data.pending).toEqual([code]);
+    // B et C ferment leur navigateur : la main se débloque, les jetons de A reviennent
+    await pool.query("UPDATE room_presence SET last_seen = NOW() - INTERVAL '5 minutes' WHERE user_id = ANY($1)", [[b.id, c.id]]);
+    r = await call("POST", "/me/tables/reclaim", a.token);
+    expect(r.data.pending).toEqual([]);
+    expect(r.data.tables).toHaveLength(0);
+    expect(r.data.balance).toBeGreaterThan(0);
+    expect((await call("POST", "/wallet/reset", a.token)).status).toBe(200);
+    void tok;
+  });
+
   it("concurrence : deux joueurs visent le même siège au même instant", async () => {
     const before = await totalVC();
     const h = await signup("Host3");
@@ -370,12 +406,14 @@ describe("salons multijoueurs et poker", () => {
     expect(await totalVC()).toBe(before + 1500);
   });
 
-  it("anti-triche : impossible de s'asseoir sans les fonds, ni de réinitialiser assis", async () => {
+  it("anti-triche : impossible de s'asseoir sans les fonds ; réinitialiser lève d'abord de table", async () => {
     const h = await signup("Host4");
     const { code } = (await call("POST", "/rooms", h.token)).data;
     expect((await call("POST", `/rooms/${code}/sit`, h.token, { seat: 0, buyIn: 600 })).status).toBe(400);
     await call("POST", `/rooms/${code}/sit`, h.token, { seat: 0, buyIn: 500 });
-    expect((await call("POST", "/wallet/reset", h.token)).status).toBe(400);
     expect((await call("GET", "/me", h.token)).data.balance).toBe(0);
+    // réinitialiser assis (sans main en cours) : on est d'abord levé de table, puis remis à 500
+    expect((await call("POST", "/wallet/reset", h.token)).data.balance).toBe(500);
+    expect((await call("GET", "/me/tables", h.token)).data.tables).toHaveLength(0);
   });
 });

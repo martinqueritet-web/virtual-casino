@@ -56,7 +56,16 @@ export async function handle(req: Request): Promise<Response> {
     }
     if (M === "PATCH" && path === "/me") return json({ user: await core.updateProfile(user.id, b) });
     if (M === "GET" && path === "/stats") return json({ user, ...(await core.getStats(user.id)), balance: await core.balanceOf(user.id) });
-    if (M === "POST" && path === "/wallet/reset") return json({ balance: await core.resetWallet(user.id) });
+    if (M === "POST" && path === "/wallet/reset") {
+      // d'abord récupérer automatiquement les jetons restés sur des tables
+      await rooms.reclaimAllSeats(user.id);
+      return json({ balance: await core.resetWallet(user.id) });
+    }
+    if (M === "GET" && path === "/me/tables") return json({ tables: await rooms.seatedTables(user.id) });
+    if (M === "POST" && path === "/me/tables/reclaim") {
+      const r = await rooms.reclaimAllSeats(user.id);
+      return json({ ...r, tables: await rooms.seatedTables(user.id), balance: await core.balanceOf(user.id) });
+    }
 
     if (M === "POST" && path === "/rooms") return json(await rooms.createRoom(user), 201);
     if (M === "POST" && path === "/rooms/join") return json(await rooms.joinRoom(user, b.code));

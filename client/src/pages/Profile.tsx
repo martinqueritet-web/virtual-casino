@@ -12,8 +12,23 @@ export function ProfilePage() {
   const { user, avatars, updateUser, toast, signOut, setBalance } = useApp();
   const [data, setData] = useState<any>(null);
   const [settings, setSettings] = useState(false);
+  const [tables, setTables] = useState<{ code: string; stack: number; inHand: number; member: boolean }[]>([]);
 
-  const load = () => api("/stats").then((r) => (setData(r), setBalance(r.balance)));
+  const load = () => {
+    api("/me/tables").then((r) => setTables(r.tables)).catch(() => {});
+    return api("/stats").then((r) => (setData(r), setBalance(r.balance)));
+  };
+  const reclaim = async () => {
+    try {
+      const r = await api("/me/tables/reclaim", { method: "POST" });
+      setTables(r.tables);
+      setBalance(r.balance);
+      toast(r.pending.length ? `Une main est encore en cours au salon ${r.pending.join(", ")} : vos jetons reviendront dès qu'elle se termine.` : "Vos jetons sont revenus dans votre portefeuille", r.pending.length ? "info" : "win");
+      load();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    }
+  };
   useEffect(() => {
     load();
   }, []); // eslint-disable-line
@@ -64,6 +79,30 @@ export function ProfilePage() {
             </div>
           </div>
         </section>
+
+        {tables.length > 0 && (
+          <section className="rounded-xl border border-gold/50 bg-gold/10 p-5">
+            <h2 className="font-semibold text-gold">Vous avez des jetons sur une table de poker</h2>
+            <ul className="mt-2 space-y-1 text-sm text-gold-pale/85">
+              {tables.map((t) => (
+                <li key={t.code} className="flex flex-wrap items-center gap-x-3">
+                  <span>
+                    Salon {t.code} : <b>{fmt(t.stack)} VC</b> sur votre tapis{t.inHand ? ` (et ${fmt(t.inHand)} VC misés dans la main en cours)` : ""}
+                  </span>
+                  {t.member && (
+                    <button className="text-gold underline-offset-2 hover:underline" onClick={() => (location.hash = "#/room/" + t.code)}>
+                      Ouvrir la table
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <button className="btn-gold mt-3" onClick={reclaim}>
+              Récupérer mes jetons
+            </button>
+            <p className="mt-2 text-xs text-gold-pale/60">Si une main est en cours, vous vous couchez et vos jetons reviennent dès qu'elle se termine. Les joueurs absents jouent automatiquement.</p>
+          </section>
+        )}
 
         <section className="panel p-5">
           <h2 className="mb-3 font-semibold text-gold-pale">Avatar</h2>
