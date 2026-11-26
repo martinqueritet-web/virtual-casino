@@ -216,27 +216,32 @@ const KIND_GAME: [RegExp, string][] = [
  * Évolution du solde sur une période : point de départ, courbe (réduite à 300 points
  * au plus, en gardant le plus haut et le plus bas de chaque tranche), résumé et bilan par jeu.
  */
-export async function balanceHistory(userId: string, range: string) {
+export async function balanceHistory(userId: string, range: string, zoom?: { from: number; to: number }) {
   if (!(range in RANGES)) throw new ApiError(400, "Période inconnue");
   const interval = RANGES[range];
-  const since = interval ? `NOW() - INTERVAL '${interval}'` : "'-infinity'::timestamptz";
+  if (zoom && !(Number.isFinite(zoom.from) && Number.isFinite(zoom.to) && zoom.from >= 0 && zoom.to - zoom.from >= 5_000)) throw new ApiError(400, "Zoom invalide");
+  // zoom : fenêtre précise [from, to] en millisecondes, avec la même finesse (300 points) que la vue complète
+  const since = zoom ? "to_timestamp($2::float8 / 1000)" : interval ? `NOW() - INTERVAL '${interval}'` : "'-infinity'::timestamptz";
+  const until = zoom ? "AND created_at <= to_timestamp($3::float8 / 1000)" : "";
+  const p1 = zoom ? [userId, zoom.from] : [userId];
+  const p2 = zoom ? [userId, zoom.from, zoom.to] : [userId];
   const [start, series, kinds, now] = await Promise.all([
     q<{ balance_after: number; created_at: string }>(
       `SELECT balance_after, created_at FROM wallet_tx WHERE user_id = $1 AND created_at < ${since} ORDER BY id DESC LIMIT 1`,
-      [userId],
+      p1,
     ),
     q<{ t: string; bal: number; lo: number; hi: number; n: number }>(
       `WITH t AS (
          SELECT id, balance_after, created_at, NTILE(300) OVER (ORDER BY id) AS b
-           FROM wallet_tx WHERE user_id = $1 AND created_at >= ${since})
+           FROM wallet_tx WHERE user_id = $1 AND created_at >= ${since} ${until})
        SELECT MAX(created_at) AS t, (ARRAY_AGG(balance_after ORDER BY id DESC))[1] AS bal,
               MIN(balance_after) AS lo, MAX(balance_after) AS hi, COUNT(*)::int AS n
          FROM t GROUP BY b ORDER BY b`,
-      [userId],
+      p2,
     ),
     q<{ kind: string; total: number; n: number }>(
-      `SELECT kind, SUM(amount)::int AS total, COUNT(*)::int AS n FROM wallet_tx WHERE user_id = $1 AND created_at >= ${since} GROUP BY kind`,
-      [userId],
+      `SELECT kind, SUM(amount)::int AS total, COUNT(*)::int AS n FROM wallet_tx WHERE user_id = $1 AND created_at >= ${since} ${until} GROUP BY kind`,
+      p2,
     ),
     q<{ now: string; first: string | null; first_balance: number | null }>(
       `SELECT NOW() AS now, f.created_at AS first, f.balance_after AS first_balance
@@ -244,7 +249,9 @@ export async function balanceHistory(userId: string, range: string) {
       [userId],
     ),
   ]);
-  const balance = await balanceOf(userId);
+  const current = await balanceOf(userId);
+  // en zoom, le « solde » est celui de la fin de la fenêtre
+  const balance = zoom ? (series.rows.at(-1)?.bal ?? start.rows[0]?.balance_after ?? (now.rows[0].first && new Date(now.rows[0].first).getTime() > zoom.to ? now.rows[0].first_balance : null) ?? current) : current;
   // avant la création du compte : on part du solde de bienvenue
   const startBalance = start.rows[0]?.balance_after ?? now.rows[0].first_balance ?? balance;
   const points = series.rows.map((r) => ({ t: new Date(r.t).getTime(), balance: r.bal, low: r.lo, high: r.hi }));
@@ -260,11 +267,12 @@ export async function balanceHistory(userId: string, range: string) {
   }
   const nowMs = new Date(now.rows[0].now).getTime();
   const firstMs = now.rows[0].first ? new Date(now.rows[0].first).getTime() : nowMs;
-  const from = interval ? nowMs - { "1h": 3.6e6, "24h": 8.64e7, "7d": 6.048e8, "30d": 2.592e9 }[range as "1h"]! : firstMs;
+  const from = zoom ? zoom.from : interval ? nowMs - { "1h": 3.6e6, "24h": 8.64e7, "7d": 6.048e8, "30d": 2.592e9 }[range as "1h"]! : firstMs;
   return {
     range,
     from,
-    to: nowMs,
+    to: zoom ? Math.min(zoom.to, nowMs) : nowMs,
+    zoomed: !!zoom,
     startBalance,
     balance,
     points,

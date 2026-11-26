@@ -57,7 +57,10 @@ export async function handle(req: Request): Promise<Response> {
       return json({ user, balance: await core.balanceOf(user.id), rooms: await rooms.myRooms(user.id), avatars: core.AVATARS });
     }
     if (M === "PATCH" && path === "/me") return json({ user: await core.updateProfile(user.id, b) });
-    if (M === "GET" && path === "/stats/balance") return json(await core.balanceHistory(user.id, url.searchParams.get("range") ?? "24h"));
+    if (M === "GET" && path === "/stats/balance") {
+      const zf = url.searchParams.get("from"), zt = url.searchParams.get("to");
+      return json(await core.balanceHistory(user.id, url.searchParams.get("range") ?? "24h", zf !== null && zt !== null ? { from: Number(zf), to: Number(zt) } : undefined));
+    }
     if (M === "GET" && path === "/stats") return json({ user, ...(await core.getStats(user.id)), balance: await core.balanceOf(user.id) });
     if (M === "POST" && path === "/wallet/refill") {
       // bouton « plus de crédits » : d'abord récupérer les jetons restés sur une table

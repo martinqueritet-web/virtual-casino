@@ -160,6 +160,19 @@ describe("comptes et portefeuille", () => {
     const d24 = (await call("GET", "/stats/balance?range=24h", u.token)).data;
     expect(d24.summary.change).toBe(k.data.balance - 500);
     expect((await call("GET", "/stats/balance?range=2ans", u.token)).status).toBe(400);
+    // zoom sur les 10 dernières minutes : seule la partie de keno apparaît, à pleine finesse
+    const now = Date.now();
+    const z = (await call("GET", `/stats/balance?range=all&from=${now - 600_000}&to=${now + 1000}`, u.token)).data;
+    expect(z.zoomed).toBe(true);
+    expect(z.startBalance).toBe(old);
+    expect(z.balance).toBe(k.data.balance);
+    expect(z.byGame.map((g: any) => g.game)).toEqual(["Keno"]);
+    // zoom sur une fenêtre d'il y a 3 h : le solde de fin est celui d'avant le keno
+    const z3 = (await call("GET", `/stats/balance?range=all&from=${now - 4 * 3.6e6}&to=${now - 2 * 3.6e6}`, u.token)).data;
+    expect(z3.balance).toBe(old);
+    expect(z3.byGame.map((g: any) => g.game)).not.toContain("Keno");
+    expect((await call("GET", `/stats/balance?range=all&from=${now}&to=${now + 100}`, u.token)).status).toBe(400);
+    expect((await call("GET", `/stats/balance?range=all&from=abc&to=${now}`, u.token)).status).toBe(400);
   });
 
   it("bouton « Recharger » : seulement sans crédits, et les jetons d'une table sont rendus d'abord", async () => {
