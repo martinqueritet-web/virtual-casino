@@ -156,7 +156,6 @@ export function TopBar({ title, back = "" }: { title?: string; back?: string }) 
           )}
         </div>
       </div>
-      <LowBalanceBar />
     </header>
   );
 }
