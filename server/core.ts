@@ -194,6 +194,89 @@ export async function getStats(userId: string) {
   return { stats: stats.rows[0] ?? null, transactions: tx.rows.reverse(), history: hist.rows };
 }
 
+const RANGES: Record<string, string | null> = { "1h": "1 hour", "24h": "24 hours", "7d": "7 days", "30d": "30 days", all: null };
+
+/** Jeu associé à chaque type de mouvement du portefeuille. */
+const KIND_GAME: [RegExp, string][] = [
+  [/^POKER_/, "Poker"],
+  [/^BJ_/, "Blackjack"],
+  [/^SLOTS/, "Machines à sous"],
+  [/^MINES_/, "Mines"],
+  [/^ROULETTE_/, "Roulette"],
+  [/^PLINKO_/, "Plinko"],
+  [/^BACCARAT_/, "Baccara"],
+  [/^VP_/, "Vidéo poker"],
+  [/^KENO_/, "Keno"],
+  [/^WHEEL_/, "Roue de la fortune"],
+];
+
+/**
+ * Évolution du solde sur une période : point de départ, courbe (réduite à 300 points
+ * au plus, en gardant le plus haut et le plus bas de chaque tranche), résumé et bilan par jeu.
+ */
+export async function balanceHistory(userId: string, range: string) {
+  if (!(range in RANGES)) throw new ApiError(400, "Période inconnue");
+  const interval = RANGES[range];
+  const since = interval ? `NOW() - INTERVAL '${interval}'` : "'-infinity'::timestamptz";
+  const [start, series, kinds, now] = await Promise.all([
+    q<{ balance_after: number; created_at: string }>(
+      `SELECT balance_after, created_at FROM wallet_tx WHERE user_id = $1 AND created_at < ${since} ORDER BY id DESC LIMIT 1`,
+      [userId],
+    ),
+    q<{ t: string; bal: number; lo: number; hi: number; n: number }>(
+      `WITH t AS (
+         SELECT id, balance_after, created_at, NTILE(300) OVER (ORDER BY id) AS b
+           FROM wallet_tx WHERE user_id = $1 AND created_at >= ${since})
+       SELECT MAX(created_at) AS t, (ARRAY_AGG(balance_after ORDER BY id DESC))[1] AS bal,
+              MIN(balance_after) AS lo, MAX(balance_after) AS hi, COUNT(*)::int AS n
+         FROM t GROUP BY b ORDER BY b`,
+      [userId],
+    ),
+    q<{ kind: string; total: number; n: number }>(
+      `SELECT kind, SUM(amount)::int AS total, COUNT(*)::int AS n FROM wallet_tx WHERE user_id = $1 AND created_at >= ${since} GROUP BY kind`,
+      [userId],
+    ),
+    q<{ now: string; first: string | null; first_balance: number | null }>(
+      `SELECT NOW() AS now, f.created_at AS first, f.balance_after AS first_balance
+         FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT created_at, balance_after FROM wallet_tx WHERE user_id = $1 ORDER BY id LIMIT 1) f ON TRUE`,
+      [userId],
+    ),
+  ]);
+  const balance = await balanceOf(userId);
+  // avant la création du compte : on part du solde de bienvenue
+  const startBalance = start.rows[0]?.balance_after ?? now.rows[0].first_balance ?? balance;
+  const points = series.rows.map((r) => ({ t: new Date(r.t).getTime(), balance: r.bal, low: r.lo, high: r.hi }));
+  const values = [startBalance, ...series.rows.flatMap((r) => [r.lo, r.hi]), balance].filter((v): v is number => v !== null);
+  const byGame = new Map<string, number>();
+  let resets = 0;
+  let moves = 0;
+  for (const k of kinds.rows) {
+    moves += k.n;
+    if (k.kind === "RESET") resets += k.n;
+    const game = KIND_GAME.find(([re]) => re.test(k.kind))?.[1];
+    if (game) byGame.set(game, (byGame.get(game) ?? 0) + k.total);
+  }
+  const nowMs = new Date(now.rows[0].now).getTime();
+  const firstMs = now.rows[0].first ? new Date(now.rows[0].first).getTime() : nowMs;
+  const from = interval ? nowMs - { "1h": 3.6e6, "24h": 8.64e7, "7d": 6.048e8, "30d": 2.592e9 }[range as "1h"]! : firstMs;
+  return {
+    range,
+    from,
+    to: nowMs,
+    startBalance,
+    balance,
+    points,
+    summary: {
+      change: balance - startBalance,
+      high: values.length ? Math.max(...values) : balance,
+      low: values.length ? Math.min(...values) : balance,
+      moves,
+      resets,
+    },
+    byGame: [...byGame.entries()].map(([game, net]) => ({ game, net })).sort((a, b) => b.net - a.net),
+  };
+}
+
 export async function addHistory(c: Q, userId: string, game: string, result: string, net: number, detail: object = {}) {
   await c.query("INSERT INTO game_history (user_id, game, result, net, detail) VALUES ($1, $2, $3, $4, $5)", [userId, game, result, net, JSON.stringify(detail)]);
 }

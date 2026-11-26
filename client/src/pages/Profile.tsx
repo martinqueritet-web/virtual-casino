@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { api } from "../api";
 import { useApp, fmt } from "../state";
 import { TopBar, Avatar } from "../components/UI";
 import { SettingsModal } from "../components/Settings";
+import { BalanceChart } from "../components/BalanceChart";
 
 const COLORS = ["#d9b45a", "#c0334a", "#1c8064", "#4f7bd9", "#9b59d0", "#e07b39", "#3fb6b0", "#e8e2d0"];
 const GAME_FR: Record<string, string> = { poker: "Poker", blackjack: "Blackjack", slots: "Machines à sous", mines: "Mines", roulette: "Roulette", plinko: "Plinko", baccara: "Baccara", videopoker: "Vidéo poker", keno: "Keno", roue: "Roue de la fortune" };
@@ -54,7 +54,6 @@ export function ProfilePage() {
   };
 
   const s = data?.stats;
-  const chart = (data?.transactions ?? []).map((t: any, i: number) => ({ i, solde: t.balance_after, date: new Date(t.created_at).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) }));
   const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)} %` : "—");
 
   return (
@@ -122,23 +121,7 @@ export function ProfilePage() {
 
         {s && (
           <>
-            <section className="panel p-5">
-              <div className="mb-3 flex items-baseline justify-between">
-                <h2 className="font-semibold text-gold-pale">Évolution du solde</h2>
-                <span className="text-sm text-gold-pale/60">Solde actuel : {fmt(data.balance)} VC</span>
-              </div>
-              <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chart} margin={{ left: -10, right: 8, top: 8 }}>
-                    <CartesianGrid stroke="rgba(217,180,90,.08)" vertical={false} />
-                    <XAxis dataKey="i" hide />
-                    <YAxis stroke="rgba(243,230,196,.4)" fontSize={11} tickLine={false} axisLine={false} />
-                    <Tooltip contentStyle={{ background: "#04110c", border: "1px solid rgba(217,180,90,.3)", borderRadius: 8 }} labelStyle={{ color: "#f3e6c4" }} labelFormatter={(i) => chart[Number(i)]?.date ?? ""} formatter={(v) => [`${fmt(Number(v))} VC`, "Solde"]} />
-                    <Line type="monotone" dataKey="solde" stroke="#d9b45a" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
+            <BalanceChart refreshKey={data.balance} />
 
             <section className="grid gap-4 md:grid-cols-3">
               <StatCard

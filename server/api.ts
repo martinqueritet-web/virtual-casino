@@ -57,6 +57,7 @@ export async function handle(req: Request): Promise<Response> {
       return json({ user, balance: await core.balanceOf(user.id), rooms: await rooms.myRooms(user.id), avatars: core.AVATARS });
     }
     if (M === "PATCH" && path === "/me") return json({ user: await core.updateProfile(user.id, b) });
+    if (M === "GET" && path === "/stats/balance") return json(await core.balanceHistory(user.id, url.searchParams.get("range") ?? "24h"));
     if (M === "GET" && path === "/stats") return json({ user, ...(await core.getStats(user.id)), balance: await core.balanceOf(user.id) });
     if (M === "POST" && path === "/wallet/reset") {
       // d'abord récupérer automatiquement les jetons restés sur des tables

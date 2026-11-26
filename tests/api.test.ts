@@ -139,6 +139,29 @@ describe("comptes et portefeuille", () => {
     expect((await call("POST", "/blackjack/start", u.token, { bet: 10 })).status).toBe(200);
   });
 
+  it("évolution du solde par période : départ, variation, bilan par jeu", async () => {
+    const u = await signup("Courbe");
+    for (let i = 0; i < 4; i++) await call("POST", "/slots/spin", u.token, { machine: "neon", bet: 10 });
+    // les mouvements jusqu'ici datent d'il y a 3 heures
+    await pool.query("UPDATE wallet_tx SET created_at = NOW() - INTERVAL '3 hours' WHERE user_id = $1", [u.id]);
+    const old = (await call("GET", "/me", u.token)).data.balance;
+    const k = await call("POST", "/keno/play", u.token, { bet: 20, picks: [1, 2, 3] });
+    const h1 = (await call("GET", "/stats/balance?range=1h", u.token)).data;
+    expect(h1.startBalance).toBe(old);
+    expect(h1.balance).toBe(k.data.balance);
+    expect(h1.summary.change).toBe(k.data.balance - old);
+    expect(h1.points.length).toBeGreaterThanOrEqual(1);
+    expect(h1.byGame.map((g: any) => g.game)).toEqual(["Keno"]);
+    expect(h1.byGame[0].net).toBe(k.data.payout - 20);
+    const all = (await call("GET", "/stats/balance?range=all", u.token)).data;
+    expect(all.startBalance).toBe(500); // depuis toujours : on part du solde de bienvenue
+    expect(all.points[0].balance).toBe(500); // le cadeau de bienvenue
+    expect(all.byGame.map((g: any) => g.game).sort()).toEqual(["Keno", "Machines à sous"]);
+    const d24 = (await call("GET", "/stats/balance?range=24h", u.token)).data;
+    expect(d24.summary.change).toBe(k.data.balance - 500);
+    expect((await call("GET", "/stats/balance?range=2ans", u.token)).status).toBe(400);
+  });
+
   it("réinitialisation du portefeuille", async () => {
     const u = await signup("Resetter");
     await call("POST", "/slots/spin", u.token, { machine: "neon", bet: 25 });
