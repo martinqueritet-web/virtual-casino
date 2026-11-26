@@ -4,13 +4,14 @@ import { api } from "../api";
 import { useApp, fmt } from "../state";
 import { TopBar, Help } from "../components/UI";
 import { sound } from "../sound";
+import { AmountField } from "../components/BetInput";
 
 const WHEEL = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
 const RED = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 const colorOf = (n: number) => (n === 0 ? "#16794a" : RED.has(n) ? "#b3283d" : "#151515");
 const CHIP_VALUES = [1, 5, 25, 100];
 const CHIP_COLORS: Record<number, string> = { 1: "#e9e3d3", 5: "#b3283d", 25: "#16794a", 100: "#151515" };
-const MAX_TOTAL = 500;
+const MAX_TOTAL = 100_000;
 
 type BetKey = string; // "plein:17", "rouge", "douzaine:2"…
 const label = (k: BetKey) => {
@@ -164,8 +165,12 @@ export function RoulettePage() {
                   {v}
                 </button>
               ))}
-              <span className="ml-2 text-sm text-gold-pale/70">
-                Total misé : <b className="text-gold-pale">{fmt(total)}</b> / {MAX_TOTAL}
+              <div className="flex w-40 items-center gap-1.5" title="Valeur du jeton : tapez le montant que vous voulez">
+                <span className="text-xs text-gold-pale/60">Jeton</span>
+                <AmountField value={chip} onChange={setChip} max={Math.max(1, Math.min(MAX_TOTAL, balance))} label="Valeur du jeton" />
+              </div>
+              <span className="text-sm text-gold-pale/70">
+                Total misé : <b className="text-gold-pale">{fmt(total)}</b>
               </span>
             </div>
             <div className="flex flex-wrap gap-2">

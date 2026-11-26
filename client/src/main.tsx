@@ -15,6 +15,10 @@ import { SoloPokerPage } from "./pages/SoloPoker";
 import { MinesPage } from "./pages/Mines";
 import { RoulettePage } from "./pages/Roulette";
 import { PlinkoPage } from "./pages/Plinko";
+import { BaccaratPage } from "./pages/Baccarat";
+import { VideoPokerPage } from "./pages/VideoPoker";
+import { KenoPage } from "./pages/Keno";
+import { WheelPage } from "./pages/Wheel";
 import { useEffect } from "react";
 
 function Router() {
@@ -53,6 +57,10 @@ function Router() {
   else if (r[0] === "mines") page = <MinesPage />;
   else if (r[0] === "roulette") page = <RoulettePage />;
   else if (r[0] === "plinko") page = <PlinkoPage />;
+  else if (r[0] === "baccara") page = <BaccaratPage />;
+  else if (r[0] === "videopoker") page = <VideoPokerPage />;
+  else if (r[0] === "keno") page = <KenoPage />;
+  else if (r[0] === "roue") page = <WheelPage />;
   else if (r[0] === "slots") page = <SlotsPage machineId={r[1]} />;
   else if (r[0] === "profile" || r[0] === "stats") page = <ProfilePage />;
   else page = <Hall />;

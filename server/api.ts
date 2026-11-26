@@ -4,6 +4,7 @@ import * as rooms from "./rooms.js";
 import * as solo from "./solo.js";
 import * as soloPoker from "./soloPoker.js";
 import * as casino from "./casino.js";
+import * as tables from "./tablesvc.js";
 import { publicMachines } from "./games/slots.js";
 import { ApiError } from "./core.js";
 
@@ -42,6 +43,7 @@ export async function handle(req: Request): Promise<Response> {
     if (M === "POST" && path === "/auth/login") return json(await core.login(b.username, b.password));
     if (M === "GET" && path === "/slots/machines") return json(publicMachines());
     if (M === "GET" && path === "/casino/info") return json(casino.casinoInfo());
+    if (M === "GET" && path === "/tables/info") return json(tables.tablesInfo());
 
     // ---- authentifié
     if (M === "POST" && path === "/auth/logout") {
@@ -92,6 +94,12 @@ export async function handle(req: Request): Promise<Response> {
     if (M === "POST" && path === "/mines/action") return json(await casino.minesAction(user.id, b));
     if (M === "POST" && path === "/roulette/spin") return json(await casino.rouletteSpin(user.id, b));
     if (M === "POST" && path === "/plinko/drop") return json(await casino.plinkoDrop(user.id, b));
+    if (M === "POST" && path === "/baccarat/play") return json(await tables.baccaratPlay(user.id, b));
+    if (M === "GET" && path === "/videopoker") return json(await tables.vpGet(user.id));
+    if (M === "POST" && path === "/videopoker/deal") return json(await tables.vpDeal(user.id, b));
+    if (M === "POST" && path === "/videopoker/draw") return json(await tables.vpDraw(user.id, b));
+    if (M === "POST" && path === "/keno/play") return json(await tables.kenoPlay(user.id, b));
+    if (M === "POST" && path === "/wheel/play") return json(await tables.wheelPlay(user.id, b));
     if (M === "POST" && path === "/slots/spin") return json(await solo.slotSpin(user.id, b));
 
     throw new ApiError(404, "Route inconnue");

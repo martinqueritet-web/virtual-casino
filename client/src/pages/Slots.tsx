@@ -4,6 +4,7 @@ import { api } from "../api";
 import { useApp, go, fmt } from "../state";
 import { TopBar } from "../components/UI";
 import { sound } from "../sound";
+import { BetInput } from "../components/BetInput";
 
 interface Info {
   machines: { id: string; name: string; tagline: string; symbols: { id: string; icon: string; name: string }[]; palette: { from: string; to: string; accent: string } }[];
@@ -47,7 +48,7 @@ export function SlotsPage({ machineId }: { machineId?: string }) {
 function Machine({ info, m }: { info: Info; m: Info["machines"][number] }) {
   const { balance, setBalance, toast, prefs } = useApp();
   const fx = !(prefs.lowPower || prefs.reducedFx);
-  const [bet, setBet] = useState(info.bets[1]);
+  const [bet, setBet] = useState(2);
   const [spinning, setSpinning] = useState(false);
   const [reels, setReels] = useState<number[][]>(() => [0, 1, 2].map(() => [5, 3, 4]));
   const [columns, setColumns] = useState<number[][] | null>(null);
@@ -135,12 +136,8 @@ function Machine({ info, m }: { info: Info; m: Info["machines"][number] }) {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-2" role="radiogroup" aria-label="Mise par tour">
-            {info.bets.map((b) => (
-              <button key={b} role="radio" aria-checked={bet === b} onClick={() => setBet(b)} disabled={spinning} className={`rounded-full border px-4 py-2 font-semibold ${bet === b ? "border-gold bg-gold text-velvet" : "border-gold/30"}`}>
-                {b} VC
-              </button>
-            ))}
+          <div className="w-full max-w-sm">
+            <BetInput value={bet} onChange={setBet} disabled={spinning} />
           </div>
           <button className="btn-gold w-56 py-4 text-xl" onClick={spin} disabled={spinning || balance < bet}>
             {spinning ? "…" : "Lancer"}

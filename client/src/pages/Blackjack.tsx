@@ -6,6 +6,7 @@ import { TopBar, Help } from "../components/UI";
 import { PlayingCard, ChipStack, useNarrow } from "../components/Cards";
 import { sound } from "../sound";
 import { handValue } from "../../../server/games/blackjack";
+import { AmountField } from "../components/BetInput";
 
 const ACTIONS = [
   { id: "hit", label: "Tirer", hint: "Une carte de plus (T)", key: "t", cls: "btn-felt" },
@@ -23,7 +24,7 @@ const CHIPS = [
   { v: 100, c: "#151515", t: "#fff" },
   { v: 500, c: "#6b2a8c", t: "#fff" },
 ];
-const MAX_BET = 500;
+const MAX_BET = 100_000;
 
 export function BlackjackPage() {
   const { setBalance, toast, balance } = useApp();
@@ -352,7 +353,10 @@ export function BlackjackPage() {
               <button className="btn-gold px-10 py-3 text-lg" onClick={start} disabled={busy || !bet || !canAfford(bet)}>
                 Distribuer · {bet} VC{practice ? " d'entraînement" : ""}
               </button>
-              <p className="text-xs text-gold-pale/50">Mise de 1 à {MAX_BET} VC</p>
+              <div className="flex w-full max-w-xs items-center gap-2">
+                <span className="shrink-0 text-sm text-gold-pale/70">Montant libre</span>
+                <AmountField value={Math.max(1, bet)} onChange={setBet} max={practice ? MAX_BET : Math.min(MAX_BET, balance)} label="Montant de la mise" />
+              </div>
             </div>
           )}
         </div>

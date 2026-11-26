@@ -131,7 +131,7 @@ export function validateRouletteBets(bets: unknown): RouletteBet[] {
     const type = raw?.type as RouletteBetType;
     if (!(type in PAYS)) throw new GameError("Type de mise inconnu");
     const amount = Math.floor(Number(raw.amount));
-    if (!(amount >= 1 && amount <= 500)) throw new GameError("Chaque mise doit être comprise entre 1 et 500 VC");
+    if (!(amount >= 1 && amount <= 100_000)) throw new GameError("Chaque mise doit être comprise entre 1 et 100 000 VC");
     const value = raw.value === undefined ? undefined : Math.floor(Number(raw.value));
     if (type === "plein" && !(value! >= 0 && value! <= 36)) throw new GameError("Numéro invalide");
     if ((type === "douzaine" || type === "colonne") && !(value! >= 1 && value! <= 3)) throw new GameError("Douzaine ou colonne invalide");

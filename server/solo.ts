@@ -1,12 +1,10 @@
 import { q, tx } from "./db.js";
-import { ApiError, debit, credit, addHistory, balanceOf } from "./core.js";
+import { ApiError, debit, credit, addHistory, balanceOf, checkBet } from "./core.js";
 import * as BJ from "./games/blackjack.js";
 import * as SL from "./games/slots.js";
 
 // ------------------------------------------------------------ blackjack
 
-const BJ_MIN = 1;
-const BJ_MAX = 500;
 
 async function bjSettled(c: Parameters<Parameters<typeof tx>[0]>[0], userId: string, g: BJ.BJGame) {
   if (g.stage !== "done") return;
@@ -41,8 +39,7 @@ export async function bjGet(userId: string) {
 
 export async function bjStart(userId: string, body: any) {
   const practice = !!body.practice;
-  const bet = Math.floor(Number(body.bet));
-  if (!(bet >= BJ_MIN && bet <= BJ_MAX)) throw new ApiError(400, `Mise entre ${BJ_MIN} et ${BJ_MAX} VC`);
+  const bet = checkBet(body.bet);
   return tx(async (c) => {
     const { rows } = await c.query<{ state: BJ.BJGame }>("SELECT state FROM blackjack_games WHERE user_id = $1 FOR UPDATE", [userId]);
     if (rows[0] && rows[0].state.stage !== "done" && !rows[0].state.practice) throw new ApiError(400, "Terminez d'abord la manche en cours");
@@ -103,8 +100,7 @@ export async function bjInsurance(userId: string, body: any) {
 export async function slotSpin(userId: string, body: any) {
   const machine = SL.MACHINES.find((m) => m.id === body.machine);
   if (!machine) throw new ApiError(400, "Machine inconnue");
-  const bet = Math.floor(Number(body.bet));
-  if (!SL.BETS.includes(bet)) throw new ApiError(400, "Mise invalide");
+  const bet = checkBet(body.bet);
   const r = SL.spin(bet);
   return tx(async (c) => {
     const delta = r.win - bet;

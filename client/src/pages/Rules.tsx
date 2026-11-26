@@ -159,6 +159,25 @@ export function RulesPage() {
           </div>
         </section>
         <section>
+          <h2 className="mb-3 font-marquee text-3xl text-gold">Le baccara</h2>
+          <div className="space-y-2 text-gold-pale/85">
+            <p>Deux mains s'affrontent : le Joueur et la Banque. Vous pariez sur celle qui s'approchera le plus de 9, ou sur l'égalité. Les figures et les 10 valent 0, l'As vaut 1, et seul le chiffre des unités compte.</p>
+            <p>Les troisièmes cartes sont tirées automatiquement selon le règlement officiel. Gains : Joueur 1 pour 1, Banque 0,95 pour 1 (commission de 5 %), Égalité 8 pour 1, Paires 11 pour 1. En cas d'égalité, les mises Joueur et Banque sont rendues.</p>
+          </div>
+        </section>
+        <section>
+          <h2 className="mb-3 font-marquee text-3xl text-gold">Le vidéo poker (Jacks or Better)</h2>
+          <p className="text-gold-pale/85">Vous recevez 5 cartes. Gardez celles que vous voulez, puis tirez : les autres sont remplacées une seule fois. La main finale paie selon la table, à partir d'une paire de Valets. Quinte flush royale : 800 fois la mise. Un conseil vous indique quelles cartes garder.</p>
+        </section>
+        <section>
+          <h2 className="mb-3 font-marquee text-3xl text-gold">Le keno</h2>
+          <p className="text-gold-pale/85">Choisissez de 1 à 10 numéros entre 1 et 40. Le serveur en tire 10. Votre gain dépend du nombre de numéros choisis et du nombre de numéros trouvés ; la table des gains s'affiche pendant votre choix. Taux de retour : environ 95 %.</p>
+        </section>
+        <section>
+          <h2 className="mb-3 font-marquee text-3xl text-gold">La roue de la fortune</h2>
+          <p className="text-gold-pale/85">La roue compte 54 cases. Misez sur un ou plusieurs symboles : la case « 1 » paie 1 pour 1, « 2 » paie 2 pour 1, et ainsi de suite jusqu'au joker et au logo casino, payés 40 pour 1. Les grosses cotes sont rares.</p>
+        </section>
+        <section>
           <h2 className="mb-3 font-marquee text-3xl text-gold">Les Mines</h2>
           <div className="space-y-2 text-gold-pale/85">
             <p>Choisissez votre mise et le nombre de mines (de 1 à 24) cachées parmi 25 cases. Chaque case sûre découverte révèle un diamant et augmente le multiplicateur.</p>

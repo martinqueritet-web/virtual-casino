@@ -77,18 +77,22 @@ export function Hall() {
           <p className="mt-4 text-center text-gold-pale/70">
             Bonsoir {user!.username}. Votre portefeuille contient {fmt(useApp().balance)} VC.
           </p>
-          <div className="mx-auto mt-6 grid max-w-4xl grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3">
+          <div className="mx-auto mt-6 grid max-w-5xl grid-cols-5 gap-1.5 sm:gap-2 lg:grid-cols-10">
             {[
               ["🃏", "Poker", () => document.getElementById("poker")?.scrollIntoView({ behavior: "smooth" })],
               ["♠️", "Blackjack", () => go("blackjack")],
               ["🎡", "Roulette", () => go("roulette")],
+              ["🂡", "Baccara", () => go("baccara")],
+              ["📺", "Vidéo poker", () => go("videopoker")],
               ["💎", "Mines", () => go("mines")],
               ["🔻", "Plinko", () => go("plinko")],
+              ["🔢", "Keno", () => go("keno")],
+              ["🎯", "Roue", () => go("roue")],
               ["🎰", "Machines", () => document.getElementById("machines")?.scrollIntoView({ behavior: "smooth" })],
             ].map(([icon, label, fn]) => (
-              <button key={label as string} onClick={fn as () => void} className="panel flex flex-col items-center gap-1 px-1 py-3 hover:border-gold/50">
-                <span className="text-3xl">{icon as string}</span>
-                <span className="text-sm font-medium text-gold-pale">{label as string}</span>
+              <button key={label as string} onClick={fn as () => void} className="panel flex flex-col items-center gap-1 px-0.5 py-2.5 hover:border-gold/50">
+                <span className="text-2xl sm:text-3xl">{icon as string}</span>
+                <span className="text-center text-[11px] font-medium leading-tight text-gold-pale sm:text-sm">{label as string}</span>
               </button>
             ))}
           </div>
@@ -142,8 +146,8 @@ export function Hall() {
         </section>
 
         <section id="jeux" className="mt-12 scroll-mt-20">
-          <h2 className="font-marquee text-4xl text-gold">Jeux de table et jeux rapides</h2>
-          <p className="mb-5 mt-1 text-gold-pale/75">Tous les résultats sont tirés par le serveur, et chaque jeu affiche son taux de retour.</p>
+          <h2 className="font-marquee text-4xl text-gold">Jeux de casino</h2>
+          <p className="mb-5 mt-1 text-gold-pale/75">Tous les résultats sont tirés par le serveur, chaque jeu affiche son taux de retour, et vous misez le montant que vous voulez.</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <GameTile
               title="Blackjack"
@@ -189,6 +193,43 @@ export function Hall() {
                   <circle cx={47} cy={30} r={4} fill="#e8c46c" />
                 </svg>
               }
+            />
+            <GameTile
+              title="Baccara"
+              text="Le jeu de cartes préféré des grands casinos : pariez sur le Joueur, la Banque ou l'égalité, le croupier fait le reste."
+              onClick={() => go("baccara")}
+              art={
+                <div className="flex -space-x-5">
+                  <PlayingCard card="9d" size="lg" />
+                  <PlayingCard card="Kc" size="lg" />
+                </div>
+              }
+            />
+            <GameTile
+              title="Vidéo poker"
+              text="Jacks or Better : 5 cartes, gardez les meilleures, tirez une fois. Une paire de Valets suffit pour gagner. Conseils intégrés."
+              onClick={() => go("videopoker")}
+              art={<div className="rounded-lg border-2 border-[#1d4fa0] bg-[#0a1a3d] px-2 py-3 font-marquee text-sm text-[#fff36b]">JACKS<br />OR BETTER</div>}
+            />
+            <GameTile
+              title="Keno"
+              text="Choisissez de 1 à 10 numéros sur 40, le serveur en tire 10. Plus vous en trouvez, plus vous gagnez, jusqu'à ×22 400."
+              onClick={() => go("keno")}
+              art={
+                <div className="grid grid-cols-4 gap-0.5" aria-hidden>
+                  {[7, 12, 3, 21, 9, 33, 18, 40].map((n, i) => (
+                    <span key={n} className={`grid h-6 w-6 place-items-center rounded text-[10px] font-bold ${i % 3 === 0 ? "bg-gold text-velvet" : "bg-white/10 text-gold-pale"}`}>
+                      {n}
+                    </span>
+                  ))}
+                </div>
+              }
+            />
+            <GameTile
+              title="Roue de la fortune"
+              text="La grande roue des casinos : misez sur une ou plusieurs cases, de 1 pour 1 jusqu'au joker payé 40 pour 1."
+              onClick={() => go("roue")}
+              art={<div className="text-5xl">🎯</div>}
             />
           </div>
           <button onClick={() => go("stats")} className="mt-4 text-sm text-gold underline-offset-4 hover:underline">

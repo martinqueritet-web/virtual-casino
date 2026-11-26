@@ -6,7 +6,7 @@ import { TopBar, Avatar } from "../components/UI";
 import { SettingsModal } from "../components/Settings";
 
 const COLORS = ["#d9b45a", "#c0334a", "#1c8064", "#4f7bd9", "#9b59d0", "#e07b39", "#3fb6b0", "#e8e2d0"];
-const GAME_FR: Record<string, string> = { poker: "Poker", blackjack: "Blackjack", slots: "Machines à sous", mines: "Mines", roulette: "Roulette", plinko: "Plinko" };
+const GAME_FR: Record<string, string> = { poker: "Poker", blackjack: "Blackjack", slots: "Machines à sous", mines: "Mines", roulette: "Roulette", plinko: "Plinko", baccara: "Baccara", videopoker: "Vidéo poker", keno: "Keno", roue: "Roue de la fortune" };
 
 export function ProfilePage() {
   const { user, avatars, updateUser, toast, signOut, setBalance } = useApp();
@@ -186,6 +186,36 @@ export function ProfilePage() {
                   ["Billes lâchées", fmt(s.plinko_drops ?? 0)],
                   ["Meilleur multiplicateur", `×${Number(s.plinko_best_mult ?? 0)}`],
                   ["Bilan", `${s.plinko_net > 0 ? "+" : ""}${fmt(s.plinko_net ?? 0)} VC`],
+                ]}
+              />
+              <StatCard
+                title="Baccara"
+                rows={[
+                  ["Coups", fmt(s.baccarat_coups ?? 0)],
+                  ["Bilan", `${s.baccarat_net > 0 ? "+" : ""}${fmt(s.baccarat_net ?? 0)} VC`],
+                ]}
+              />
+              <StatCard
+                title="Vidéo poker"
+                rows={[
+                  ["Mains", fmt(s.vp_hands ?? 0)],
+                  ["Meilleure main", s.vp_best ?? "—"],
+                  ["Bilan", `${s.vp_net > 0 ? "+" : ""}${fmt(s.vp_net ?? 0)} VC`],
+                ]}
+              />
+              <StatCard
+                title="Keno"
+                rows={[
+                  ["Tirages", fmt(s.keno_draws ?? 0)],
+                  ["Record de numéros trouvés", fmt(s.keno_best_hits ?? 0)],
+                  ["Bilan", `${s.keno_net > 0 ? "+" : ""}${fmt(s.keno_net ?? 0)} VC`],
+                ]}
+              />
+              <StatCard
+                title="Roue de la fortune"
+                rows={[
+                  ["Tours", fmt(s.wheel_spins ?? 0)],
+                  ["Bilan", `${s.wheel_net > 0 ? "+" : ""}${fmt(s.wheel_net ?? 0)} VC`],
                 ]}
               />
               <StatCard

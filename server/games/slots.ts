@@ -126,7 +126,7 @@ export function payoutFor(line: number[], bet: number): { win: number; kind: str
 }
 
 export function spin(bet: number) {
-  if (!BETS.includes(bet)) throw new Error("Mise invalide");
+  if (!Number.isInteger(bet) || bet < 1) throw new Error("Mise invalide");
   const N = STRIP.length;
   const stops = [randomInt(N), randomInt(N), randomInt(N)];
   // fenêtre visible : au-dessus, ligne gagnante, en dessous

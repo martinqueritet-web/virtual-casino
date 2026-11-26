@@ -8,6 +8,13 @@ export class ApiError extends Error {
 }
 
 export const START_BALANCE = 500;
+/** Mise maximale par coup (la vraie limite est le solde du joueur). */
+export const MAX_BET = 100_000;
+export function checkBet(raw: unknown): number {
+  const bet = Math.floor(Number(raw));
+  if (!(bet >= 1 && bet <= MAX_BET)) throw new ApiError(400, `Mise entre 1 et ${MAX_BET.toLocaleString("fr-FR")} VC`);
+  return bet;
+}
 /** Salons où l'utilisateur ($1) a des jetons posés sur la table. */
 export const SEATED_SQL = `SELECT code, updated_at FROM rooms WHERE jsonb_path_exists(state, '$.poker.seats[*] ? (@.userId == $uid)', jsonb_build_object('uid', $1::text))`;
 const SESSION_DAYS = 30;
@@ -136,6 +143,8 @@ export async function resetWallet(userId: string) {
       );
     const mines = await c.query("SELECT 1 FROM mines_games WHERE user_id = $1 AND state->>'stage' = 'playing'", [userId]);
     if (mines.rowCount) throw new ApiError(400, "Terminez d'abord votre partie de Mines");
+    const vp = await c.query("SELECT 1 FROM videopoker_games WHERE user_id = $1 AND state->>'stage' = 'hold'", [userId]);
+    if (vp.rowCount) throw new ApiError(400, "Terminez d'abord votre main de vidéo poker");
     const solo = await c.query("SELECT 1 FROM solo_poker WHERE user_id = $1", [userId]);
     if (solo.rowCount) throw new ApiError(400, "Quittez d'abord votre table contre les bots pour réinitialiser votre portefeuille");
     const bj = await c.query("SELECT 1 FROM blackjack_games WHERE user_id = $1 AND state->>'stage' <> 'done' AND (state->>'practice')::boolean = false", [userId]);

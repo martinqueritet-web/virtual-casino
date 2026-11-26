@@ -1,14 +1,8 @@
 /** Mines, Roulette et Plinko côté serveur : portefeuille et statistiques dans la même transaction. */
 import { q, tx, type Q } from "./db.js";
-import { ApiError, debit, credit, addHistory, balanceOf } from "./core.js";
+import { ApiError, debit, credit, addHistory, balanceOf, MAX_BET, checkBet } from "./core.js";
 import * as G from "./games/minigames.js";
 
-const MAX_BET = 500;
-const checkBet = (raw: unknown) => {
-  const bet = Math.floor(Number(raw));
-  if (!(bet >= 1 && bet <= MAX_BET)) throw new ApiError(400, `Mise entre 1 et ${MAX_BET} VC`);
-  return bet;
-};
 const wrap = <T>(fn: () => T): T => {
   try {
     return fn();

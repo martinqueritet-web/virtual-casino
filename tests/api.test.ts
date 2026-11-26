@@ -72,7 +72,8 @@ describe("comptes et portefeuille", () => {
       expect(r.data.balance).toBe(bal - 5 + r.data.win);
       bal = r.data.balance;
     }
-    expect((await call("POST", "/slots/spin", u.token, { machine: "egypte", bet: 3 })).status).toBe(400);
+    expect((await call("POST", "/slots/spin", u.token, { machine: "egypte", bet: 0 })).status).toBe(400);
+    expect((await call("POST", "/slots/spin", u.token, { machine: "egypte", bet: 999999 })).status).toBe(400);
     const ledger = await pool.query("SELECT SUM(amount)::int s FROM wallet_tx WHERE user_id = $1", [u.id]);
     expect(ledger.rows[0].s).toBe(bal); // le journal correspond exactement au solde
   });
@@ -193,6 +194,49 @@ describe("Mines, Roulette, Plinko", () => {
       expect(r.data.balance).toBe(bal - 10 + r.data.payout);
       bal = r.data.balance;
     }
+  });
+});
+
+describe("Baccara, Vidéo poker, Keno, Roue, mise libre", () => {
+  it("mise libre : n'importe quel montant jusqu'au solde", async () => {
+    const u = await signup("Libre");
+    const r = await call("POST", "/slots/spin", u.token, { machine: "neon", bet: 137 });
+    expect(r.status).toBe(200);
+    expect(r.data.balance).toBe(500 - 137 + r.data.win);
+    expect((await call("POST", "/blackjack/start", u.token, { bet: 100000 })).status).toBe(400); // solde insuffisant
+  });
+
+  it("Baccara : plusieurs mises, solde exact", async () => {
+    const u = await signup("Baccara");
+    const r = await call("POST", "/baccarat/play", u.token, { bets: [{ type: "banque", amount: 100 }, { type: "egalite", amount: 10 }] });
+    expect(r.status).toBe(200);
+    expect(r.data.coup.order.length).toBeGreaterThanOrEqual(4);
+    expect(r.data.balance).toBe(500 - 110 + r.data.payout);
+    expect((await call("POST", "/baccarat/play", u.token, { bets: [{ type: "triche", amount: 10 }] })).status).toBe(400);
+  });
+
+  it("Vidéo poker : donne, garde, tirage ; le paquet reste secret", async () => {
+    const u = await signup("Videopoker");
+    let r = await call("POST", "/videopoker/deal", u.token, { bet: 20 });
+    expect(r.data.game.hand).toHaveLength(5);
+    expect(JSON.stringify(r.data)).not.toContain('"deck"');
+    expect((await call("POST", "/videopoker/deal", u.token, { bet: 20 })).status).toBe(400);
+    expect((await call("POST", "/wallet/reset", u.token)).status).toBe(400);
+    const kept = r.data.game.hand[0];
+    r = await call("POST", "/videopoker/draw", u.token, { held: [true, false, false, false, false] });
+    expect(r.data.game.hand[0]).toBe(kept);
+    expect(r.data.balance).toBe(480 + r.data.game.payout);
+  });
+
+  it("Keno et Roue de la fortune", async () => {
+    const u = await signup("Kenoroue");
+    const k = await call("POST", "/keno/play", u.token, { bet: 10, picks: [3, 7, 12, 25, 40] });
+    expect(k.data.drawn).toHaveLength(10);
+    expect(k.data.balance).toBe(490 + k.data.payout);
+    const w = await call("POST", "/wheel/play", u.token, { bets: [{ symbol: "1", amount: 10 }, { symbol: "joker", amount: 5 }] });
+    expect(w.data.balance).toBe(k.data.balance - 15 + w.data.payout);
+    const ledger = await pool.query("SELECT SUM(amount)::int s FROM wallet_tx WHERE user_id = $1", [u.id]);
+    expect(ledger.rows[0].s).toBe(w.data.balance);
   });
 });
 
