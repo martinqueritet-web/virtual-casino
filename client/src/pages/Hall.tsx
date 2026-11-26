@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useApp, go, fmt } from "../state";
 import { Marquee } from "../components/Marquee";
-import { Avatar, Balance } from "../components/UI";
+import { Avatar, Balance, LowBalanceBar } from "../components/UI";
 import { SettingsModal } from "../components/Settings";
 import { PlayingCard } from "../components/Cards";
 
@@ -69,6 +69,7 @@ export function Hall() {
             </button>
           </nav>
         </div>
+        <LowBalanceBar />
       </header>
 
       <main className="mx-auto max-w-6xl px-4 pb-16">

@@ -59,6 +59,15 @@ export async function handle(req: Request): Promise<Response> {
     if (M === "PATCH" && path === "/me") return json({ user: await core.updateProfile(user.id, b) });
     if (M === "GET" && path === "/stats/balance") return json(await core.balanceHistory(user.id, url.searchParams.get("range") ?? "24h"));
     if (M === "GET" && path === "/stats") return json({ user, ...(await core.getStats(user.id)), balance: await core.balanceOf(user.id) });
+    if (M === "POST" && path === "/wallet/refill") {
+      // bouton « plus de crédits » : d'abord récupérer les jetons restés sur une table
+      const before = await core.balanceOf(user.id);
+      if (before >= core.REFILL_THRESHOLD) throw new core.ApiError(400, "Vous avez encore des crédits");
+      await rooms.reclaimAllSeats(user.id);
+      const after = await core.balanceOf(user.id);
+      if (after >= core.REFILL_THRESHOLD) return json({ balance: after, refilled: false, recovered: after - before });
+      return json({ balance: await core.resetWallet(user.id), refilled: true, recovered: after - before });
+    }
     if (M === "POST" && path === "/wallet/reset") {
       // d'abord récupérer automatiquement les jetons restés sur des tables
       await rooms.reclaimAllSeats(user.id);

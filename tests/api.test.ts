@@ -162,6 +162,20 @@ describe("comptes et portefeuille", () => {
     expect((await call("GET", "/stats/balance?range=2ans", u.token)).status).toBe(400);
   });
 
+  it("bouton « Recharger » : seulement sans crédits, et les jetons d'une table sont rendus d'abord", async () => {
+    const u = await signup("Fauche");
+    expect((await call("POST", "/wallet/refill", u.token)).status).toBe(400); // encore 500 VC
+    await pool.query("UPDATE wallets SET balance = 3 WHERE user_id = $1", [u.id]);
+    let r = await call("POST", "/wallet/refill", u.token);
+    expect(r.data).toMatchObject({ balance: 500, refilled: true });
+    // 400 VC posés sur une table et plus rien en poche : on récupère les jetons au lieu d'écraser à 500
+    const { code } = (await call("POST", "/rooms", u.token)).data;
+    await call("POST", `/rooms/${code}/sit`, u.token, { seat: 0, buyIn: 400 });
+    await pool.query("UPDATE wallets SET balance = 0 WHERE user_id = $1", [u.id]);
+    r = await call("POST", "/wallet/refill", u.token);
+    expect(r.data).toMatchObject({ balance: 400, refilled: false, recovered: 400 });
+  });
+
   it("réinitialisation du portefeuille", async () => {
     const u = await signup("Resetter");
     await call("POST", "/slots/spin", u.token, { machine: "neon", bet: 25 });

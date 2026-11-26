@@ -8,6 +8,8 @@ export class ApiError extends Error {
 }
 
 export const START_BALANCE = 500;
+/** En dessous de ce solde, le bouton « Recharger » apparaît. */
+export const REFILL_THRESHOLD = 10;
 /** Mise maximale par coup (la vraie limite est le solde du joueur). */
 export const MAX_BET = 100_000;
 export function checkBet(raw: unknown): number {

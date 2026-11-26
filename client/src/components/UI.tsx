@@ -1,6 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useApp, fmt, go } from "../state";
+import { api } from "../api";
+import { sound } from "../sound";
 
 export function Modal({ open, onClose, title, children, wide = false }: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -106,6 +108,36 @@ export function Avatar({ emoji, color, size = 40, ring = false }: { emoji: strin
   );
 }
 
+/** Bandeau « plus de crédits » : visible partout dès que le solde passe sous 10 VC. */
+export function LowBalanceBar() {
+  const { user, balance, setBalance, toast } = useApp();
+  const [busy, setBusy] = useState(false);
+  if (!user || balance >= 10) return null;
+  const refill = async () => {
+    setBusy(true);
+    try {
+      const r = await api("/wallet/refill", { method: "POST" });
+      setBalance(r.balance);
+      toast(r.refilled ? (r.recovered > 0 ? `${r.recovered} VC récupérés sur une table, et votre portefeuille est rechargé à 500 VC` : "Portefeuille rechargé : 500 VC") : `Vos ${r.recovered} VC posés sur une table sont revenus dans votre portefeuille`, "win");
+      sound.win();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="border-t border-gold/30 bg-gradient-to-r from-[#2a2108] via-[#3a2d0b] to-[#2a2108]">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-1.5 px-3 py-2">
+        <span className="text-sm text-gold-pale">{balance === 0 ? "Vous n'avez plus de crédits." : `Il ne vous reste que ${balance} VC.`}</span>
+        <button className="btn-gold px-4 py-1.5 text-sm" onClick={refill} disabled={busy}>
+          {busy ? "Un instant…" : "Recharger 500 VC gratuitement"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function TopBar({ title, back = "" }: { title?: string; back?: string }) {
   const { user } = useApp();
   return (
@@ -124,6 +156,7 @@ export function TopBar({ title, back = "" }: { title?: string; back?: string }) 
           )}
         </div>
       </div>
+      <LowBalanceBar />
     </header>
   );
 }
