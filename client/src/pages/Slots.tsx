@@ -55,6 +55,24 @@ function Machine({ info, m }: { info: Info; m: Info["machines"][number] }) {
   const [spinId, setSpinId] = useState(0);
   const [result, setResult] = useState<{ win: number; kind: string | null; line: number[] } | null>(null);
   const tickTimer = useRef<number | undefined>(undefined);
+  // ---- mode automatique
+  type Auto = { total: number; left: number; net: number; lossLimit: number | null; stopWinX: number | null; fast: boolean };
+  const [auto, setAuto] = useState<Auto | null>(null);
+  const [setup, setSetup] = useState(false);
+  const [autoCfg, setAutoCfg] = useState({ total: 25, loss: true, lossX: 20, stopWin: true, stopWinX: 20, fast: false });
+  const lastWinX = useRef(0);
+  const speed = auto?.fast ? 0.5 : 1;
+
+  const autoRef = useRef<Auto | null>(null);
+  autoRef.current = auto;
+  const stopAuto = (reason: string) => {
+    const a = autoRef.current;
+    if (!a) return;
+    autoRef.current = null;
+    setAuto(null);
+    const n = a.total - a.left;
+    toast(`Mode automatique arrêté : ${reason}. ${n} tour${n > 1 ? "s" : ""} joué${n > 1 ? "s" : ""}, bilan ${a.net > 0 ? "+" : ""}${fmt(a.net)} VC.`, a.net > 0 ? "win" : "info");
+  };
 
   const spin = async () => {
     if (spinning) return;
@@ -71,7 +89,7 @@ function Machine({ info, m }: { info: Info; m: Info["machines"][number] }) {
       setSpinId((x) => x + 1);
       setBalance(r.balance - r.win); // la mise part tout de suite, le gain arrive à l'arrêt
       if (fx) tickTimer.current = window.setInterval(() => sound.tick(), 70);
-      const duration = fx ? 1700 : 50;
+      const duration = fx ? 1700 * speed : 50;
       setTimeout(() => {
         clearInterval(tickTimer.current);
         setReels(r.grid);
@@ -80,18 +98,53 @@ function Machine({ info, m }: { info: Info; m: Info["machines"][number] }) {
         setBalance(r.balance);
         setSpinning(false);
         if (r.win > 0) sound.win();
+        lastWinX.current = r.win / bet;
+        setAuto((a) => (a ? { ...a, left: a.left - 1, net: a.net + r.win - bet } : a));
       }, duration);
     } catch (e) {
       toast((e as Error).message, "error");
       setSpinning(false);
+      setAuto(null);
     }
+  };
+
+  // enchaîne les tours automatiques et vérifie les limites entre chaque tour
+  useEffect(() => {
+    if (!auto || spinning) return;
+    if (auto.left <= 0) return stopAuto("série terminée");
+    if (auto.lossLimit !== null && -auto.net >= auto.lossLimit) return stopAuto("limite de perte atteinte");
+    if (auto.stopWinX !== null && lastWinX.current >= auto.stopWinX) return stopAuto("gros gain");
+    if (balance < bet) return stopAuto("solde insuffisant");
+    const t = setTimeout(spin, auto.fast ? 250 : 600);
+    return () => clearTimeout(t);
+  }); // eslint-disable-line
+
+  // jamais de tours automatiques en arrière-plan
+  useEffect(() => {
+    const onVis = () => document.hidden && stopAuto("page masquée");
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []); // eslint-disable-line
+
+  const startAuto = () => {
+    lastWinX.current = 0;
+    setSetup(false);
+    setAuto({
+      total: autoCfg.total,
+      left: autoCfg.total,
+      net: 0,
+      lossLimit: autoCfg.loss ? autoCfg.lossX * bet : null,
+      stopWinX: autoCfg.stopWin ? autoCfg.stopWinX : null,
+      fast: autoCfg.fast,
+    });
   };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === "Space" && (e.target as HTMLElement).tagName !== "BUTTON") {
+      if (e.code === "Space" && (e.target as HTMLElement).tagName !== "BUTTON" && (e.target as HTMLElement).tagName !== "INPUT") {
         e.preventDefault();
-        spin();
+        if (auto) stopAuto("arrêt demandé");
+        else spin();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -117,7 +170,7 @@ function Machine({ info, m }: { info: Info; m: Info["machines"][number] }) {
                       key={spinId}
                       initial={{ y: 0 }}
                       animate={{ y: -(columns[ri].length - 3) * CELL }}
-                      transition={{ duration: 1.0 + ri * 0.3, ease: [0.2, 0.6, 0.3, 1] }}
+                      transition={{ duration: (1.0 + ri * 0.3) * speed, ease: [0.2, 0.6, 0.3, 1] }}
                     >
                       {columns[ri].map((s, k) => (
                         <Cell key={k} icon={sym(s).icon} />
@@ -137,12 +190,72 @@ function Machine({ info, m }: { info: Info; m: Info["machines"][number] }) {
           </div>
 
           <div className="w-full max-w-sm">
-            <BetInput value={bet} onChange={setBet} disabled={spinning} />
+            <BetInput value={bet} onChange={setBet} disabled={spinning || !!auto} />
           </div>
-          <button className="btn-gold w-56 py-4 text-xl" onClick={spin} disabled={spinning || balance < bet}>
-            {spinning ? "…" : "Lancer"}
-          </button>
-          <p className="text-xs text-gold-pale/50">Barre d'espace pour lancer. Un tour à la fois, sans lancement automatique.</p>
+          {auto ? (
+            <div className="w-full max-w-sm rounded-xl border-2 p-3 text-center" style={{ borderColor: m.palette.accent }}>
+              <p className="text-sm text-gold-pale">
+                Mode automatique : tour <b>{auto.total - auto.left + (spinning ? 1 : 0)}</b> sur {auto.total} · bilan{" "}
+                <b className={auto.net > 0 ? "text-emerald-300" : auto.net < 0 ? "text-[#ff9aa9]" : ""}>
+                  {auto.net > 0 ? "+" : ""}
+                  {fmt(auto.net)} VC
+                </b>
+              </p>
+              <div className="mx-auto mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="h-full transition-all" style={{ width: `${((auto.total - auto.left) / auto.total) * 100}%`, background: m.palette.accent }} />
+              </div>
+              <p className="mt-1 text-[11px] text-gold-pale/55">
+                {auto.lossLimit !== null ? `Arrêt si la perte atteint ${fmt(auto.lossLimit)} VC` : "Sans limite de perte"}
+                {auto.stopWinX !== null ? ` · arrêt sur un gain ×${auto.stopWinX} ou plus` : ""}
+              </p>
+              <button className="btn-ruby mt-2 w-full py-3 text-lg" onClick={() => stopAuto("arrêt demandé")}>
+                Arrêter
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button className="btn-gold w-48 py-4 text-xl" onClick={spin} disabled={spinning || balance < bet}>
+                {spinning ? "…" : "Lancer"}
+              </button>
+              <button className={`btn-ghost px-5 py-4 ${setup ? "border-gold bg-gold/10" : ""}`} onClick={() => setSetup(!setup)} disabled={spinning} aria-expanded={setup}>
+                Auto
+              </button>
+            </div>
+          )}
+          {setup && !auto && (
+            <div className="panel w-full max-w-sm space-y-3 p-4">
+              <div>
+                <p className="mb-1.5 text-sm text-gold-pale/80">Nombre de tours</p>
+                <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="Nombre de tours automatiques">
+                  {[10, 25, 50, 100].map((n) => (
+                    <button key={n} role="radio" aria-checked={autoCfg.total === n} onClick={() => setAutoCfg((c) => ({ ...c, total: n }))} className={`rounded-lg border py-2 text-sm ${autoCfg.total === n ? "border-gold bg-gold/15 text-gold" : "border-gold/20"}`}>
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <label className="flex items-center justify-between gap-3 text-sm">
+                <span>
+                  Arrêter si je perds plus de <b className="text-gold-pale">{fmt(autoCfg.lossX * bet)} VC</b>
+                </span>
+                <input type="checkbox" className="h-5 w-5 accent-[#d9b45a]" checked={autoCfg.loss} onChange={(e) => setAutoCfg((c) => ({ ...c, loss: e.target.checked }))} />
+              </label>
+              {autoCfg.loss && <input type="range" min={5} max={100} step={5} value={autoCfg.lossX} onChange={(e) => setAutoCfg((c) => ({ ...c, lossX: Number(e.target.value) }))} className="w-full" aria-label="Limite de perte en nombre de mises" />}
+              <label className="flex items-center justify-between gap-3 text-sm">
+                <span>Arrêter après un gain de ×{autoCfg.stopWinX} ou plus</span>
+                <input type="checkbox" className="h-5 w-5 accent-[#d9b45a]" checked={autoCfg.stopWin} onChange={(e) => setAutoCfg((c) => ({ ...c, stopWin: e.target.checked }))} />
+              </label>
+              <label className="flex items-center justify-between gap-3 text-sm">
+                <span>Tours rapides</span>
+                <input type="checkbox" className="h-5 w-5 accent-[#d9b45a]" checked={autoCfg.fast} onChange={(e) => setAutoCfg((c) => ({ ...c, fast: e.target.checked }))} />
+              </label>
+              <button className="btn-gold w-full py-3" onClick={startAuto} disabled={balance < bet}>
+                Démarrer {autoCfg.total} tours à {fmt(bet)} VC
+              </button>
+              <p className="text-[11px] text-gold-pale/50">Le mode automatique s'arrête aussi si votre solde ne suffit plus ou si vous quittez la page. Barre d'espace ou « Arrêter » pour l'interrompre à tout moment.</p>
+            </div>
+          )}
+          <p className="text-xs text-gold-pale/50">Barre d'espace pour lancer un tour.</p>
         </div>
 
         <aside className="panel h-fit p-4">

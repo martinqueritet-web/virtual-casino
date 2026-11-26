@@ -192,7 +192,7 @@ export function RulesPage() {
         <section>
           <h2 className="mb-3 font-marquee text-3xl text-gold">Les machines à sous</h2>
           <p className="text-gold-pale/85">
-            Trois rouleaux, une ligne de gain au centre. Chaque résultat est tiré par le serveur avec un générateur aléatoire cryptographique : le navigateur ne peut pas l'influencer. La table des gains et le taux de retour théorique sont affichés sur chaque machine. Il n'y a ni achat, ni lancement automatique.
+            Trois rouleaux, une ligne de gain au centre. Chaque résultat est tiré par le serveur avec un générateur aléatoire cryptographique : le navigateur ne peut pas l'influencer. La table des gains et le taux de retour théorique sont affichés sur chaque machine. Il n'y a aucun achat. Le mode automatique enchaîne au plus 100 tours, avec une limite de perte, un arrêt après un gros gain et un bouton « Arrêter » toujours visible ; il s'interrompt si vous quittez la page.
           </p>
         </section>
         <p className="text-sm text-gold-pale/50">VIRTUAL CASINO est un jeu de simulation. Les crédits virtuels sont fictifs, gratuits et sans valeur. Aucun dépôt, retrait ou achat n'existe.</p>
