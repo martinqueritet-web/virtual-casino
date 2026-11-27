@@ -1,7 +1,7 @@
-// Adresse du serveur de jeu. Sur le site Netlify : même origine.
+// Adresse du serveur de jeu. Sur le site Render : même origine.
 // Ouvert en fichier local (file://) ou hébergé ailleurs : serveur en ligne.
-const REMOTE = "https://virtual-casino-69.netlify.app";
-const sameOrigin = location.hostname.endsWith("virtual-casino-69.netlify.app") || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+const REMOTE = "https://virtual-casino.onrender.com";
+const sameOrigin = location.hostname.endsWith(".onrender.com") || location.hostname === "localhost" || location.hostname === "127.0.0.1";
 export const ORIGIN = sameOrigin ? location.origin : REMOTE;
 export const API = (sameOrigin ? "" : REMOTE) + "/api";
 
