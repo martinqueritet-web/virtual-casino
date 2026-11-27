@@ -27,7 +27,8 @@ export interface MinesGame {
 export function minesMultiplier(mines: number, k: number): number {
   let m = 1;
   for (let i = 0; i < k; i++) m *= (MINES_GRID - i) / (MINES_GRID - mines - i);
-  return k === 0 ? 1 : Math.floor(m * MINES_RTP * 100) / 100;
+  // petite marge : 1.13 calculé 1.12999999 ne doit pas devenir 1.12
+  return k === 0 ? 1 : Math.floor(m * MINES_RTP * 100 + 1e-6) / 100;
 }
 
 export const commitmentOf = (layout: number[], salt: string) =>

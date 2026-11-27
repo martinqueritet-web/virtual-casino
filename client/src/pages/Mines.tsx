@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../api";
 import { useApp, fmt } from "../state";
@@ -18,6 +18,10 @@ export function MinesPage() {
   const [mines, setMines] = useState(3);
   const [busy, setBusy] = useState(false);
   const [verified, setVerified] = useState<boolean | null>(null);
+  // cases touchées pendant qu'une réponse du serveur est en route : jouées ensuite dans l'ordre
+  const [queued, setQueued] = useState<number[]>([]);
+  const queueRef = useRef<number[]>([]);
+  const runningRef = useRef(false);
 
   useEffect(() => {
     api("/mines").then((r) => {
@@ -54,15 +58,44 @@ export function MinesPage() {
     const g = await call("/mines/start", { bet, mines });
     if (g) sound.chip();
   };
-  const reveal = async (cell: number) => {
-    if (busy || game?.stage !== "playing" || game.revealed.includes(cell)) return;
-    const g = await call("/mines/action", { cell });
-    if (!g) return;
-    if (g.stage === "lost") sound.lose();
-    else if (g.stage === "cashed") sound.win();
-    else sound.tick();
+  const runQueue = async () => {
+    if (runningRef.current) return;
+    runningRef.current = true;
+    setBusy(true);
+    try {
+      while (queueRef.current.length) {
+        const cell = queueRef.current[0];
+        let g: any = null;
+        try {
+          const r = await api("/mines/action", { body: { cell } });
+          g = r.game;
+          setGame(g);
+          setBalance(r.balance);
+        } catch (e) {
+          toast((e as Error).message, "error");
+        }
+        queueRef.current = queueRef.current.slice(1);
+        if (!g || g.stage !== "playing") {
+          // partie finie (mine ou toutes les cases) : les touches en attente sont annulées
+          queueRef.current = [];
+          if (g?.stage === "lost") sound.lose();
+          else if (g?.stage === "cashed") sound.win();
+        } else sound.tick();
+        setQueued([...queueRef.current]);
+      }
+    } finally {
+      runningRef.current = false;
+      setBusy(false);
+    }
+  };
+  const reveal = (cell: number) => {
+    if (game?.stage !== "playing" || game.revealed.includes(cell) || queueRef.current.includes(cell)) return;
+    queueRef.current = [...queueRef.current, cell];
+    setQueued([...queueRef.current]);
+    runQueue();
   };
   const cashout = async () => {
+    if (runningRef.current) return;
     const g = await call("/mines/action", { action: "cashout" });
     if (g) sound.win();
   };
@@ -74,7 +107,7 @@ export function MinesPage() {
     <div className="min-h-dvh">
       <TopBar title="Mines" />
       <main className="mx-auto grid max-w-5xl gap-5 px-3 py-5 lg:grid-cols-[300px_1fr]">
-        <aside className="panel order-2 h-fit space-y-4 p-4 lg:order-1">
+        <aside className="panel order-2 flex h-fit flex-col gap-4 p-4 lg:order-1">
           <BetInput value={bet} onChange={setBet} disabled={playing} />
           <div>
             <div className="mb-1 flex justify-between text-sm text-gold-pale/70">
@@ -93,7 +126,7 @@ export function MinesPage() {
           </div>
 
           {playing ? (
-            <div className="space-y-2">
+            <div className="order-first space-y-2 lg:order-none">
               <div className="grid grid-cols-2 gap-2 text-center">
                 <div className="rounded-lg bg-black/40 p-2">
                   <div className="text-xs text-gold-pale/60">Multiplicateur</div>
@@ -111,7 +144,7 @@ export function MinesPage() {
             </div>
           ) : (
             <button className="btn-gold w-full py-3 text-lg" onClick={start} disabled={busy || bet > balance}>
-              Jouer {fmt(bet)} VC
+              {bet > balance ? "Solde insuffisant" : `Jouer ${fmt(bet)} VC`}
             </button>
           )}
         </aside>
@@ -122,13 +155,16 @@ export function MinesPage() {
               const isSafe = game?.revealed.includes(i);
               const isMine = over && game.layout?.includes(i);
               const isHit = game?.hit === i;
-              const shown = isSafe || isMine;
+              const isPending = playing && queued.includes(i);
+              // fin de partie : les diamants non trouvés apparaissent en transparence
+              const missed = over && !!game.layout && !isSafe && !isMine;
+              const shown = isSafe || isMine || missed;
               return (
                 <motion.button
                   key={i}
                   whileTap={playing && !isSafe ? { scale: 0.92 } : undefined}
                   onClick={() => reveal(i)}
-                  disabled={!playing || isSafe}
+                  disabled={!playing || isSafe || isPending}
                   aria-label={isSafe ? "Diamant" : isMine ? "Mine" : `Case ${i + 1}`}
                   className={`relative grid aspect-square place-items-center rounded-xl text-3xl transition-colors sm:text-4xl ${
                     shown
@@ -137,13 +173,15 @@ export function MinesPage() {
                         : isSafe
                           ? "bg-felt-light/70"
                           : "bg-black/50"
-                      : "bg-gradient-to-b from-[#1f5f4b] to-[#0d3a2c] shadow-[inset_0_-4px_0_rgba(0,0,0,.35)] hover:from-[#26735b] disabled:hover:from-[#1f5f4b]"
+                      : isPending
+                        ? "animate-pulse bg-gradient-to-b from-[#2f8a6c] to-[#17543f]"
+                        : "bg-gradient-to-b from-[#1f5f4b] to-[#0d3a2c] shadow-[inset_0_-4px_0_rgba(0,0,0,.35)] hover:from-[#26735b] disabled:hover:from-[#1f5f4b]"
                   }`}
                 >
                   <AnimatePresence>
                     {shown && (
-                      <motion.span initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 320, damping: 16 }} className={isMine && !isHit ? "opacity-60" : ""}>
-                        {isSafe ? "💎" : "💣"}
+                      <motion.span initial={{ scale: 0, rotate: -30 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 320, damping: 16 }} className={(isMine && !isHit) || missed ? "opacity-40" : ""}>
+                        {isSafe || missed ? "💎" : "💣"}
                       </motion.span>
                     )}
                   </AnimatePresence>
