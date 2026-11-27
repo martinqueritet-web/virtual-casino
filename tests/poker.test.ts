@@ -242,17 +242,17 @@ describe("aide pédagogique enrichie", () => {
     expect(d.shared).toBe(true);
     expect(d.explain).toMatch(/tous les joueurs/);
   });
-  it("avant le flop : conseils sur les cartes de départ", () => {
-    expect(describeCurrent(["Qh", "Jh"], []).explain).toMatch(/même couleur.*se suivent/s);
-    expect(describeCurrent(["8c", "8d"], []).explain).toMatch(/très bon départ/);
+  it("avant le flop : description neutre, sans conseil", () => {
+    expect(describeCurrent(["Qh", "Jh"], []).explain).toBe("Pas encore de combinaison avant le flop.");
+    expect(describeCurrent(["8c", "8d"], []).explain).toBe("Une paire servie d'entrée.");
   });
-  it("la vue du joueur donne ses chances et la cote du pot", () => {
+  it("la vue du joueur ne donne que le nom de sa main (ni chances, ni cote, ni tirages)", () => {
     const t = table3();
     P.startHand(t);
     const me = (P.viewFor(t, "a") as any).me.handInfo;
-    expect(me.equity).toBeGreaterThan(0);
-    expect(me.equity).toBeLessThan(1);
-    expect(me.potOdds).toBeCloseTo(10 / 25, 2); // 10 à payer pour un pot de 15
-    expect(me.opponents).toBe(2);
+    expect(me.label).toBeTruthy();
+    expect(me).not.toHaveProperty("equity");
+    expect(me).not.toHaveProperty("potOdds");
+    expect(me).not.toHaveProperty("draws");
   });
 });

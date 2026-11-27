@@ -517,87 +517,26 @@ function HandLog({ poker }: { poker: any }) {
   );
 }
 
-const LADDER = ["Carte haute", "Paire", "Double paire", "Brelan", "Quinte", "Couleur", "Full", "Carré", "Quinte flush"];
-
-function adviceFor(info: any, legal: any, pot: number, live: boolean) {
-  const eq = info.equity as number | null;
-  const odds = info.potOdds as number | null;
-  const pct = (x: number) => `${Math.round(x * 100)} %`;
-  if (!live || !legal || eq === null) return null;
-  if (legal.toCall > 0 && odds !== null)
-    return eq >= odds
-      ? { ok: true, short: "suivre rentable", text: `Suivre coûte ${legal.toCall} VC pour un pot de ${pot} : il suffit de gagner ${pct(odds)} du temps pour que ce soit rentable. Avec environ ${pct(eq)}, suivre se défend.` }
-      : { ok: false, short: "suivre risqué", text: `Suivre coûte ${legal.toCall} VC pour un pot de ${pot} : il faudrait gagner au moins ${pct(odds)} du temps. Avec environ ${pct(eq)}, se coucher est souvent le plus sage${info.draws.length ? ", sauf si vous visez votre tirage" : ""}.` };
-  if (legal.check)
-    return eq >= 0.6
-      ? { ok: true, short: "main solide", text: "Personne n'a misé et votre main est solide : miser permet de faire grossir le pot." }
-      : { ok: null, short: "parole gratuite", text: "Personne n'a misé : vous pouvez parler gratuitement et voir la suite." };
-  return null;
-}
-
-/** Une seule ligne : main, force, chances, signal. */
-function HandSummary({ info, legal, live, helpOpen, onHelp }: { info: any; legal: any; live: boolean; helpOpen: boolean; onHelp: () => void }) {
-  const { prefs } = useApp();
-  const adv = prefs.showHelp ? adviceFor(info, legal, 0, live) : null;
+/** Une seule ligne : le nom de la main, rien de plus. */
+function HandSummary({ info, helpOpen, onHelp }: { info: any; legal?: any; live?: boolean; helpOpen: boolean; onHelp: () => void }) {
   return (
     <div className="flex items-center gap-2 sm:gap-3">
-      <button className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-sm font-semibold ${helpOpen ? "border-gold bg-gold text-velvet" : "border-gold/40 text-gold"}`} onClick={onHelp} aria-expanded={helpOpen} aria-label="Aide : explication de la main et conseils" title="Aide">
+      <button className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-sm font-semibold ${helpOpen ? "border-gold bg-gold text-velvet" : "border-gold/40 text-gold"}`} onClick={onHelp} aria-expanded={helpOpen} aria-label="Aide : votre main et les règles" title="Aide">
         ?
       </button>
-      <span className="min-w-0 shrink-0 truncate font-marquee text-lg text-gold sm:text-xl" style={{ maxWidth: "100%" }} title={info.label}>
+      <span className="min-w-0 truncate font-marquee text-lg text-gold sm:text-xl" title={info.label}>
         {info.label}
       </span>
-      {prefs.showHelp && (
-        <>
-          <span className="hidden w-14 shrink-0 gap-[2px] lg:flex" aria-hidden title={`Force : ${LADDER[info.category]}`}>
-            {LADDER.map((l, i) => (
-              <span key={l} className={`h-1.5 flex-1 rounded-sm ${i <= info.category ? (i === info.category ? "bg-gold" : "bg-gold/45") : "bg-white/10"}`} />
-            ))}
-          </span>
-          {live && info.equity !== null && (
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-xs tabular-nums text-gold-pale" title={adv?.text ?? "Chances estimées contre des mains au hasard"}>
-              {adv && adv.ok !== null && <span className={`h-2 w-2 rounded-full ${adv.ok ? "bg-emerald-400" : "bg-ruby"}`} />}≈ {Math.round(info.equity * 100)} %
-              {adv && <span className="hidden text-gold-pale/60 2xl:inline">· {adv.short}</span>}
-            </span>
-          )}
-          {info.draws.length > 0 && <span className="hidden shrink-0 text-xs text-emerald-300/90 xl:inline">↗ tirage</span>}
-        </>
-      )}
     </div>
   );
 }
 
-/** Détails complets, affichés à la demande au-dessus de la barre. */
-function HandDetails({ info, legal, pot, live }: { info: any; legal: any; pot: number; live: boolean }) {
-  const eq = info.equity as number | null;
-  const adv = adviceFor(info, legal, pot, live);
+/** À la demande : ce qu'est la main, sans chances ni conseils. */
+function HandDetails({ info }: { info: any; legal?: any; pot?: number; live?: boolean }) {
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-1.5">
       <p className="font-marquee text-2xl text-gold">{info.label}</p>
       <p className="text-sm leading-snug text-gold-pale/80">{info.explain}</p>
-      <div aria-label={`Force de la main : ${LADDER[info.category]}, ${info.category + 1}e sur 9`}>
-        <div className="flex gap-[3px]">
-          {LADDER.map((l, i) => (
-            <span key={l} title={l} className={`h-2 flex-1 rounded-sm ${i === info.category ? "bg-gold shadow-[0_0_8px_rgba(217,180,90,.8)]" : i < info.category ? "bg-gold/45" : "bg-white/10"}`} />
-          ))}
-        </div>
-        <div className="mt-0.5 flex justify-between text-[10px] text-gold-pale/45">
-          <span>Carte haute</span>
-          <span>Quinte flush</span>
-        </div>
-      </div>
-      {info.draws.map((d: string) => (
-        <p key={d} className="text-xs text-emerald-300/90">
-          ↗ {d}
-        </p>
-      ))}
-      {live && eq !== null && (
-        <p className="text-xs text-gold-pale/70">
-          Chances estimées contre {info.opponents} adversaire{info.opponents > 1 ? "s" : ""} : <b className="text-gold-pale">≈ {Math.round(eq * 100)} %</b>
-          <span className="text-gold-pale/45"> (calculées contre des mains au hasard ; un adversaire qui mise fort a souvent mieux)</span>
-        </p>
-      )}
-      {adv && <p className={`rounded-md px-2.5 py-1.5 text-xs leading-snug ${adv.ok ? "bg-emerald-900/40 text-emerald-200" : adv.ok === false ? "bg-ruby/20 text-[#ffc2cb]" : "bg-white/5 text-gold-pale/75"}`}>{adv.text}</p>}
     </div>
   );
 }

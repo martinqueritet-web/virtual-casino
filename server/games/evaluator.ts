@@ -126,16 +126,17 @@ export interface HandHelp {
   shared: boolean;
 }
 
+// Descriptions neutres : on dit ce qu'est la main, pas si elle est bonne (le doute fait partie du jeu)
 const EXPLAIN = [
-  "Aucune combinaison : seule votre plus haute carte compte. C'est la main la plus faible ; elle gagne rarement à l'abattage.",
-  "Deux cartes de même valeur. Main modeste : plus la paire est haute, mieux c'est.",
-  "Deux paires différentes. Une bonne main, qui bat toutes les paires simples.",
-  "Trois cartes de même valeur. Une main forte.",
-  "Cinq cartes qui se suivent. Une main très forte.",
-  "Cinq cartes de la même couleur. Une main très forte.",
-  "Un brelan et une paire ensemble. Une main excellente.",
-  "Quatre cartes de même valeur. Presque imbattable.",
-  "Cinq cartes qui se suivent, de la même couleur. Presque imbattable.",
+  "Aucune combinaison : seule votre plus haute carte compte.",
+  "Deux cartes de même valeur.",
+  "Deux paires différentes.",
+  "Trois cartes de même valeur.",
+  "Cinq cartes qui se suivent.",
+  "Cinq cartes de la même couleur.",
+  "Un brelan et une paire ensemble.",
+  "Quatre cartes de même valeur.",
+  "Cinq cartes qui se suivent, de la même couleur.",
 ];
 
 /** Cartes qui forment la combinaison parmi les 5 meilleures. */
@@ -180,9 +181,9 @@ export function describeCurrent(hole: Card[], board: Card[]): HandHelp {
     const vals = hole.map(rankValue).sort((a, b) => b - a);
     const suited = hole[0][1] === hole[1][1];
     const connected = vals[0] - vals[1] === 1;
-    explain = `Pas encore de combinaison avant le flop. ${vals[0] >= 12 ? `Votre ${rankSingular(vals[0])} est une bonne carte haute.` : "Vos cartes sont plutôt basses."}${suited ? " Elles sont de la même couleur : une couleur reste possible." : ""}${connected ? " Elles se suivent : une quinte reste possible." : ""}`;
+    explain = "Pas encore de combinaison avant le flop.";
   } else if (category === 1 && board.length === 0) {
-    explain = "Une paire servie d'entrée : c'est un très bon départ avant le flop.";
+    explain = "Une paire servie d'entrée.";
   }
   if (shared && category > 0) explain += " Attention : cette combinaison est entièrement sur la table, tous les joueurs l'ont aussi.";
 

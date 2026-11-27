@@ -4,7 +4,7 @@
  * `viewFor` produit la vue filtrée envoyée à chaque joueur.
  */
 import { Card, newDeck, shuffle } from "./cards.js";
-import { evaluateBest, describeCurrent, estimateEquity } from "./evaluator.js";
+import { evaluateBest, describeCurrent } from "./evaluator.js";
 
 export type Stage = "preflop" | "flop" | "turn" | "river" | "showdown" | "done";
 export type ActionType = "fold" | "check" | "call" | "raise" | "allin";
@@ -641,22 +641,11 @@ export function viewFor(t: PokerTable, viewerId: string) {
   };
 }
 
-/** Aide au joueur : sa main expliquée, ses chances estimées et la cote du pot. */
+/** Aide au joueur, volontairement limitée : le nom de sa main et ce qu'elle est, sans chances ni conseils. */
 function handHelp(t: PokerTable, seat: number) {
   const h = t.hand!;
-  const p = h.players[seat];
-  const info = describeCurrent(p.hole, h.board);
-  const live = !p.folded && h.stage !== "done" && h.stage !== "showdown";
-  const opponents = Object.values(h.players).filter((o) => o.seat !== seat && !o.folded).length;
-  let equity: number | null = null;
-  let potOdds: number | null = null;
-  if (live && opponents > 0) {
-    equity = Math.round(estimateEquity(p.hole, h.board, opponents, 400) * 100) / 100;
-    const toCall = Math.max(0, h.currentBet - p.bet);
-    const pot = Object.values(h.players).reduce((a, x) => a + x.total, 0);
-    if (toCall > 0) potOdds = Math.round((toCall / (pot + toCall)) * 100) / 100;
-  }
-  return { ...info, equity, potOdds, opponents };
+  const { label, category, cards, explain, shared } = describeCurrent(h.players[seat].hole, h.board);
+  return { label, category, cards, explain, shared };
 }
 
 /** Somme de tous les jetons (tapis + mises). Sert aux tests d'invariants. */
