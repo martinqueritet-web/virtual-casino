@@ -1,0 +1,25 @@
+# Hébergement Render : la page + l'API dans un seul service Node, base Postgres à Francfort.
+databases:
+  - name: virtual-casino-db
+    plan: free
+    region: frankfurt
+    postgresMajorVersion: "16"
+    databaseName: virtual_casino_db
+    user: virtual_casino_db_user
+
+services:
+  - type: web
+    name: virtual-casino
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: virtual-casino-db
+          property: connectionString
